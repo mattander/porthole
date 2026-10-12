@@ -24,6 +24,14 @@ The absence of enumeration does **not** establish a power-only port or incompati
 
 No device settings, firmware, trust permissions, or network configuration were changed. No software was installed. No evidence of spyware was established.
 
+## Power baseline pending
+
+A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. Cable endpoint types and the exact power arrangement have not yet been confirmed. This is a user-reported observation, not a Mac-measured hardware diagnosis.
+
+Device probes are paused until normal power and boot are established. The next physical check is the original cable with the supplied wall adapter, following the labelled input requirements. Confirm the cable endpoints and rear-label power/port information before further data-connection tests. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
+
+The earlier USB snapshots do not establish whether the frame was fully powered at the time. Resume read-only enumeration only after boot is confirmed.
+
 ## Evidence from external sources
 
 The [purchased ASIN's listing](https://www.amazon.ca/Digital-Picture-Storage-Auto-Rotate-Remotely/dp/B0H4W1YPHH) matches the stated brand, color, display, storage, and AiMOR software. It does not establish the physical unit's board or firmware. PF108 remains unconfirmed.

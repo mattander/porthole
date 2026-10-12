@@ -8,6 +8,8 @@ The first target is an Anna Bella frame sold through Amazon.ca as ASIN B0H4W1YPH
 
 Initial read-only inspection on 2026-10-12 found **no connected USB device or interface**. The Mac exposes three built-in USB controllers, but the frame does not enumerate. ADB and Fastboot were not found in PATH or the standard installation locations checked. No firmware or device settings have been changed.
 
+Device probes are currently paused pending a power/boot check after a reported cable change.
+
 See [the investigation record](docs/hardware-investigation.md) for verified findings, limitations, and the next steps. A custom dashboard is not implemented yet; clean-OS compatibility and recovery remain unverified.
 
 ## Inspect USB safely
