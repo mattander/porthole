@@ -26,9 +26,9 @@ No device settings, firmware, trust permissions, or network configuration were c
 
 ## Power baseline pending
 
-A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. Cable endpoint types and the exact power arrangement have not yet been confirmed. This is a user-reported observation, not a Mac-measured hardware diagnosis.
+A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. The user subsequently confirmed that the supplied cable is USB-A to USB-C and the Apple cable is USB-C to USB-C. Boot with the original cable and supplied wall adapter is still awaiting confirmation. This is a user-reported observation, not a Mac-measured hardware diagnosis.
 
-Device probes are paused until normal power and boot are established. The next physical check is the original cable with the supplied wall adapter, following the labelled input requirements. Confirm the cable endpoints and rear-label power/port information before further data-connection tests. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
+Device probes are paused until normal power and boot are established. The next physical check is the original cable with the supplied wall adapter, following the labelled input requirements. Confirm rear-label power/port information before further data-connection tests. Once boot is confirmed, the proposed data test is a known data-capable A-to-C cable through a normal Mac USB-A port or hub. A working power cable does not establish data capability. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
 
 The earlier USB snapshots do not establish whether the frame was fully powered at the time. Resume read-only enumeration only after boot is confirmed.
 
