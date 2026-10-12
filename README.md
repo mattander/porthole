@@ -6,7 +6,7 @@ The first target is an Anna Bella frame sold through Amazon.ca as ASIN B0H4W1YPH
 
 ## Current status
 
-After changing to a working USB-A-to-C connection and accepting the Mac accessory prompt, the frame now enumerates as **Android / USB Developer, USB `1f3a:1000`**, at 480 Mb/s. Its current configuration exposes USB Mass Storage (`08/06/50`), with no ADB interface observed. No block device was found under the USB branch. Photos identify PF1007L, AiMOR 6.0.78, and April 20260410 firmware. Android version and silicon remain unqueried. ADB and Fastboot are absent from the checked installation locations. No firmware or device settings have been changed.
+After changing to a working USB-A-to-C connection and accepting the Mac accessory prompt, the frame now enumerates as **Android / USB Developer, USB `1f3a:1000`**, at 480 Mb/s. Its current configuration exposes USB Mass Storage (`08/06/50`), with no ADB interface observed. No block device was found under the USB branch. Photos identify PF1007L, AiMOR 6.0.78, and April 20260410 firmware. Android version and silicon remain unqueried. Official Google Platform-Tools 37.0.1 is now installed locally with approval; the targeted stock ADB check found zero devices. No firmware or device settings have been changed.
 
 See [the investigation record](docs/hardware-investigation.md) for verified findings, limitations, and the next steps. The [PF1007L access plan](docs/pf1007l-access-plan.md) identifies an exact-firmware community root route and an offline backup candidate, both awaiting approval. A custom dashboard is not implemented yet; clean-OS compatibility and recovery remain unverified.
 

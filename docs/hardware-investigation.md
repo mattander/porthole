@@ -53,6 +53,14 @@ The parent visually inspected the supplied photos and transcribed: Portrait PF10
 
 This establishes the displayed model/build identity. A33 in the firmware is a chip-family clue, not silicon verification. Android release, actual eMMC capacity, partition geometry, and PCB revision remain unread. The [access plan](pf1007l-access-plan.md) records matching community reports and concrete approval-gated options.
 
+## Approved stock ADB check
+
+The user approved official Google Android Platform-Tools installation and checking stock ADB. The vendor distribution was downloaded directly from `https://dl.google.com/android/repository/platform-tools-latest-darwin.zip`, its ZIP integrity checked, and its bundled notices inspected. The archive reports revision 37.0.1; ADB reports 37.0.1-15733141. Files remain in ignored `local/android-platform-tools/`; no global PATH or package-manager installation was needed.
+
+A separate task-local ADB server was restricted with `--one-device` to the confirmed frame's USB serial, which was kept private. Host state and the server socket were task-local, network autodiscovery/autoconnect were disabled, and no Android trust was approved. `adb devices -l` returned zero devices. The task server was stopped afterward.
+
+This confirms that ordinary stock USB ADB is unavailable in the observed configuration; it does not rule out another approved access route. No root, network, debugging, USB-mode, or firmware change was made.
+
 ## Cable and power observations
 
 A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. The user subsequently confirmed that the supplied cable is USB-A to USB-C and the Apple cable is USB-C to USB-C. Boot with the original cable and supplied wall adapter is still awaiting confirmation. This is a user-reported observation, not a Mac-measured hardware diagnosis.
@@ -73,7 +81,7 @@ The supplied [AiMOR owner report](https://xdaforums.com/t/aimor-digital-photo-fr
 
 ## Immediate next steps
 
-The full next-session procedure is in the [PF1007L access plan](pf1007l-access-plan.md). First obtain approval for official Platform-Tools and test existing USB ADB. If absent, the matching April-firmware community report provides a temporary network-root candidate; an SD/FEL route provides an offline full-backup candidate. Both require explicit approval before execution. No route has yet been tested on this physical unit.
+The full next-session procedure is in the [PF1007L access plan](pf1007l-access-plan.md). Official Platform-Tools installation and the stock USB ADB check are complete; no ADB device appeared. Next, the matching April-firmware community report provides a temporary network-root candidate; an SD/FEL route provides an offline full-backup candidate. Both require explicit approval before execution. Neither root/recovery route has been tested on this physical unit.
 
 Do not treat the user's accepted Mac accessory prompt as Android debugging trust or firmware-write approval. Keep networking, payload execution, and persistent device changes behind their own decisions. Do not use another unit's boot image, sector offsets, or storage capacity as this unit's verified values.
 
