@@ -6,9 +6,7 @@ The first target is an Anna Bella frame sold through Amazon.ca as ASIN B0H4W1YPH
 
 ## Current status
 
-Initial read-only inspection on 2026-10-12 found **no connected USB device or interface**. The Mac exposes three built-in USB controllers, but the frame does not enumerate. ADB and Fastboot were not found in PATH or the standard installation locations checked. No firmware or device settings have been changed.
-
-Device probes are currently paused pending a power/boot check after a reported cable change.
+After changing to a working USB-A-to-C connection and accepting the Mac accessory prompt, the frame now enumerates as **Android / USB Developer, USB `1f3a:1000`**, at 480 Mb/s. Its current configuration exposes USB Mass Storage (`08/06/50`), with no ADB interface observed. No block device was found under the USB branch. Exact model, Android/build version, and SoC remain unverified. ADB and Fastboot are absent from the checked installation locations. No firmware or device settings have been changed.
 
 See [the investigation record](docs/hardware-investigation.md) for verified findings, limitations, and the next steps. A custom dashboard is not implemented yet; clean-OS compatibility and recovery remain unverified.
 

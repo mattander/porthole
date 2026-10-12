@@ -2,7 +2,7 @@
 """Print sanitized, read-only macOS USB inventory without contacting devices."""
 import datetime
 import json
-import plistlib
+import re
 import shutil
 import subprocess
 import sys
@@ -16,14 +16,27 @@ def run(command):
 
 
 def registry_nodes(class_name):
-    raw = run(["/usr/sbin/ioreg", "-r", "-c", class_name, "-a"])
-    return plistlib.loads(raw.encode()) if raw.strip() else []
-
-
-def walk(nodes):
-    for node in nodes:
-        yield node
-        yield from walk(node.get("IORegistryEntryChildren", []))
+    # Use text inventory without relying on archive-output support. Parse only
+    # direct integer descriptor properties; discard every other value.
+    raw = run(["/usr/sbin/ioreg", "-r", "-c", class_name, "-l", "-w", "0"])
+    fields = {
+        "idVendor", "idProduct", "bcdDevice", "bcdUSB", "bDeviceClass",
+        "bDeviceSubClass", "bDeviceProtocol", "bInterfaceClass",
+        "bInterfaceSubClass", "bInterfaceProtocol", "bInterfaceNumber",
+    }
+    nodes = []
+    current = None
+    for line in raw.splitlines():
+        header = re.search(r"<class ([^,>]+),", line)
+        if header:
+            current = {} if header.group(1) == class_name else None
+            if current is not None:
+                nodes.append(current)
+            continue
+        prop = re.match(r'^[\s|]*"([^"]+)" = (\d+)\s*$', line)
+        if current is not None and prop and prop.group(1) in fields:
+            current[prop.group(1)] = int(prop.group(2))
+    return nodes
 
 
 def descriptors(nodes, fields):
@@ -43,8 +56,8 @@ def inspect():
     buses = inventory.get(datatype, [])
     devices = registry_nodes("IOUSBHostDevice")
     interfaces = registry_nodes("IOUSBHostInterface")
-    device_nodes = [node for node in walk(devices) if "idVendor" in node]
-    interface_nodes = [node for node in walk(interfaces)
+    device_nodes = [node for node in devices if "idVendor" in node]
+    interface_nodes = [node for node in interfaces
                        if "bInterfaceClass" in node]
     return {
         "captured_at_utc": datetime.datetime.now(

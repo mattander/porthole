@@ -2,7 +2,7 @@
 
 Inspection date: 2026-10-12. Scope: non-destructive USB inventory and existing tooling on the connected Mac.
 
-## Verified findings
+## Initial snapshot before the working data connection
 
 | Check | Observed result |
 | --- | --- |
@@ -24,13 +24,36 @@ The absence of enumeration does **not** establish a power-only port or incompati
 
 No device settings, firmware, trust permissions, or network configuration were changed. No software was installed. No evidence of spyware was established.
 
-## Power baseline pending
+## Verified USB enumeration after accessory approval
+
+After a different A-to-C cable triggered macOS accessory consent and the user accepted it, read-only queries on 2026-10-12 found:
+
+| Descriptor | Observed value |
+| --- | --- |
+| USB product string | Android |
+| USB manufacturer string | USB Developer |
+| Vendor/product ID | 1f3a:1000 |
+| USB release descriptor | 2.00 |
+| Device release descriptor | 0x0233; not an Android or firmware version |
+| Negotiated link speed | 480 Mb/s |
+| Exposed interface | Mass Storage, interface 0 |
+| Interface class/subclass/protocol | 08/06/50: mass storage, SCSI transparent, bulk-only transport |
+| ADB interface | None observed in this configuration |
+| Block-device properties | No BSD Name/media-size properties found under the device's USB registry branch |
+
+The interface base class is defined by the [USB-IF class-code specification](https://www.usb.org/defined-class-codes).
+
+This confirms a USB data connection through the current cable arrangement. It does not establish an accessible filesystem, ADB availability in another device mode, exact SoC, or firmware compatibility. The generic USB strings do not identify the retail frame model. The release descriptor must not be interpreted as Android 2.3.3. No frame storage was mounted or read, and no USB mode was changed.
+
+The diagnostic initially failed when using I/O Registry archive output with the connected device (`ioreg: error: can't open file`). Text-mode inventory succeeded. The script now reads text output and retains only integer descriptor fields from the matching device/interface nodes; serials and raw driver properties are discarded.
+
+## Cable and power observations
 
 A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. The user subsequently confirmed that the supplied cable is USB-A to USB-C and the Apple cable is USB-C to USB-C. Boot with the original cable and supplied wall adapter is still awaiting confirmation. This is a user-reported observation, not a Mac-measured hardware diagnosis.
 
-Device probes are paused until normal power and boot are established. The next physical check is the original cable with the supplied wall adapter, following the labelled input requirements. Confirm rear-label power/port information before further data-connection tests. Once boot is confirmed, the proposed data test is a known data-capable A-to-C cable through a normal Mac USB-A port or hub. A working power cable does not establish data capability. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
+Read-only probes resumed after the user approved the Mac accessory prompt on a different A-to-C cable; USB now enumerates as documented above. The earlier wall-adapter baseline boot check was not reported back, and screen boot state remains unobserved from the Mac. Confirm rear-label power/port information and on-screen boot/About details. A working power cable does not establish data capability. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
 
-The earlier USB snapshots do not establish whether the frame was fully powered at the time. Resume read-only enumeration only after boot is confirmed.
+The earlier empty USB snapshots do not establish whether the frame was fully powered at that time. The later successful enumeration supersedes the initial connection blocker.
 
 ## Evidence from external sources
 
@@ -44,9 +67,9 @@ The supplied [AiMOR owner report](https://xdaforums.com/t/aimor-digital-photo-fr
 
 ## Immediate next steps
 
-1. Confirm the frame is fully booted. Read its rear label and manual for exact model/revision, power requirements, and USB port roles. View Settings/About, if available, and record the complete firmware/build string without enabling developer options or connecting Wi-Fi.
-2. Test a known working USB data cable directly to the Mac, following the documented power arrangement. Report any Mac accessory prompt for an explicit decision; do not approve automatically or weaken the global accessory policy.
-3. Rerun `python3 scripts/inspect_usb.py`. If enumeration is still absent, resolve the documented port/cable arrangement before attempting flashing or loader utilities.
+1. Confirm the frame screen is fully booted. Read its rear label and manual for exact model/revision, power requirements, and USB port roles. View Settings/About, if available, and record the complete firmware/build string without enabling developer options or connecting Wi-Fi.
+2. Retain the now-working A-to-C data connection and documented power arrangement. The user has approved the Mac accessory prompt. This does not authorize Android debugging trust or changes to the Mac global accessory policy.
+3. Rerun `python3 scripts/inspect_usb.py` when the cable or device state changes. Enumeration is established; the next missing evidence is the model/build identity and a documented path beyond the current mass-storage interface.
 4. Obtain approval to download and extract Google's [Mac SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) into a dedicated local directory. A full Android Studio installation is unnecessary for ADB. Tool installation alone cannot fix missing USB enumeration.
 5. With tooling approved and USB present, run `adb devices -l`. Stop for a decision if debugging must be enabled or device authorization is requested. Do not approve persistent trust automatically.
 6. If the frame is already accessible, explicitly select its confirmed serial locally with `adb -s <frame-serial>` and read selected properties: product model/device/board, hardware/platform, build fingerprint, Android release/SDK, verified boot state, and flash lock state. Read kernel and CPU/partition information where permitted. Sanitize findings before committing. Do not run `adb root`, reboot into recovery, install apps, or mutate settings under this inspection scope.
@@ -55,7 +78,7 @@ No alternative access or recovery route is verified for this exact unit. If docu
 
 ## Dashboard and clean-OS feasibility
 
-The next milestone is a reliable data connection and the full hardware/build identity. If Android app access is supported, an offline 1280×800 kiosk dashboard test could follow after installation approval. Live calendar/weather updates need a separately approved data-delivery design. A kiosk running on stock firmware does not satisfy the clean-OS privacy goal by itself.
+A reliable USB data connection is established. The next milestone is the full hardware/build identity and documented software access. If Android app access is supported, an offline 1280×800 kiosk dashboard test could follow after installation approval. Live calendar/weather updates need a separately approved data-delivery design. A kiosk running on stock firmware does not satisfy the clean-OS privacy goal by itself.
 
 Clean-OS feasibility is **undetermined**. ADB access alone would not establish that replacing the OS is possible. Before any destructive change, identify the exact board/SoC, storage layout, boot restrictions, display/touch hardware support, a trusted compatible replacement image, and a matching original-firmware backup or factory image with a documented recovery process. Do not assume a generic Android, LineageOS, or Linux image will boot.
 
