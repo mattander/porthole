@@ -1,5 +1,7 @@
 # Private local device evidence and configuration
 /local/
+/backups/
+/diagnostics/
 /platform-tools/
 usb-investigation*.json
 .env

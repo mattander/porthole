@@ -47,38 +47,39 @@ This confirms a USB data connection through the current cable arrangement. It do
 
 The diagnostic initially failed when using I/O Registry archive output with the connected device (`ioreg: error: can't open file`). Text-mode inventory succeeded. The script now reads text output and retains only integer descriptor fields from the matching device/interface nodes; serials and raw driver properties are discarded.
 
+## Identity from the user's photos
+
+The parent visually inspected the supplied photos and transcribed: Portrait PF1007 on the rear label, DC 5V 2A, PF1007L in Settings, AiMOR 6.0.78, and firmware `YHK.F-null-A33-1001-D1024-PF1007L-321-OS-AIMOR.0.20260410`. The frame has a RESET pinhole and TF slot. MAC/frame IDs were excluded, and the obscured FCC identifier was not guessed.
+
+This establishes the displayed model/build identity. A33 in the firmware is a chip-family clue, not silicon verification. Android release, actual eMMC capacity, partition geometry, and PCB revision remain unread. The [access plan](pf1007l-access-plan.md) records matching community reports and concrete approval-gated options.
+
 ## Cable and power observations
 
 A subsequent user report on 2026-10-12 says the supplied cable was replaced with an Apple USB-C cable and the frame then did not turn on. The user subsequently confirmed that the supplied cable is USB-A to USB-C and the Apple cable is USB-C to USB-C. Boot with the original cable and supplied wall adapter is still awaiting confirmation. This is a user-reported observation, not a Mac-measured hardware diagnosis.
 
-Read-only probes resumed after the user approved the Mac accessory prompt on a different A-to-C cable; USB now enumerates as documented above. The earlier wall-adapter baseline boot check was not reported back, and screen boot state remains unobserved from the Mac. Confirm rear-label power/port information and on-screen boot/About details. A working power cable does not establish data capability. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
+Read-only probes resumed after the user approved the Mac accessory prompt on a different A-to-C cable; USB now enumerates as documented above. The earlier wall-adapter baseline boot check was not reported back. Subsequent photos showed Settings/About and the rear-label details recorded above. A working power cable does not establish data capability. Do not infer damage, a power-only USB port, or a specific USB-C circuit defect from this observation. Do not improvise wiring or inject power.
 
 The earlier empty USB snapshots do not establish whether the frame was fully powered at that time. The later successful enumeration supersedes the initial connection blocker.
 
 ## Evidence from external sources
 
-The [purchased ASIN's listing](https://www.amazon.ca/Digital-Picture-Storage-Auto-Rotate-Remotely/dp/B0H4W1YPHH) matches the stated brand, color, display, storage, and AiMOR software. It does not establish the physical unit's board or firmware. PF108 remains unconfirmed.
+The [purchased ASIN's listing](https://www.amazon.ca/Digital-Picture-Storage-Auto-Rotate-Remotely/dp/B0H4W1YPHH) matches the stated brand, color, display, storage, and AiMOR software. It does not establish the physical unit's board or firmware. The initial PF108 guess is superseded by the photographed PF1007/PF1007L labels.
 
 The supplied [AiMOR owner report](https://xdaforums.com/t/aimor-digital-photo-frame.4706158/post-89870521) is a lead for USB-C ADB access on another unit. A search snippet reported that ADB was already enabled; the exact post could not be fetched directly. The Android 6.0.1 detail was supplied with the report and was not independently verified here. It is not proof of compatibility with this frame.
 
-[Apple documents](https://support.apple.com/en-us/102282) that an unapproved USB accessory can receive power while data access remains blocked on an Apple silicon Mac laptop. A permission prompt has not been confirmed in this investigation.
+[Apple documents](https://support.apple.com/en-us/102282) that an unapproved USB accessory can receive power while data access remains blocked on an Apple silicon Mac laptop. The user subsequently confirmed accepting the Mac accessory prompt on the working connection.
 
 [Google documents ADB](https://developer.android.com/tools/adb) as a route for Android device enumeration and shell access. This requires a functioning connection and suitable device configuration/authorization; none is established for this frame yet.
 
 ## Immediate next steps
 
-1. Confirm the frame screen is fully booted. Read its rear label and manual for exact model/revision, power requirements, and USB port roles. View Settings/About, if available, and record the complete firmware/build string without enabling developer options or connecting Wi-Fi.
-2. Retain the now-working A-to-C data connection and documented power arrangement. The user has approved the Mac accessory prompt. This does not authorize Android debugging trust or changes to the Mac global accessory policy.
-3. Rerun `python3 scripts/inspect_usb.py` when the cable or device state changes. Enumeration is established; the next missing evidence is the model/build identity and a documented path beyond the current mass-storage interface.
-4. Obtain approval to download and extract Google's [Mac SDK Platform-Tools](https://developer.android.com/tools/releases/platform-tools) into a dedicated local directory. A full Android Studio installation is unnecessary for ADB. Tool installation alone cannot fix missing USB enumeration.
-5. With tooling approved and USB present, run `adb devices -l`. Stop for a decision if debugging must be enabled or device authorization is requested. Do not approve persistent trust automatically.
-6. If the frame is already accessible, explicitly select its confirmed serial locally with `adb -s <frame-serial>` and read selected properties: product model/device/board, hardware/platform, build fingerprint, Android release/SDK, verified boot state, and flash lock state. Read kernel and CPU/partition information where permitted. Sanitize findings before committing. Do not run `adb root`, reboot into recovery, install apps, or mutate settings under this inspection scope.
+The full next-session procedure is in the [PF1007L access plan](pf1007l-access-plan.md). First obtain approval for official Platform-Tools and test existing USB ADB. If absent, the matching April-firmware community report provides a temporary network-root candidate; an SD/FEL route provides an offline full-backup candidate. Both require explicit approval before execution. No route has yet been tested on this physical unit.
 
-No alternative access or recovery route is verified for this exact unit. If documented software access remains unavailable after identification, seek a model-specific service manual and recovery package from the manufacturer or seller. A documented SD/USB photo-import feature could support a manually refreshed dashboard image, but would not prove APK installation or live updates.
+Do not treat the user's accepted Mac accessory prompt as Android debugging trust or firmware-write approval. Keep networking, payload execution, and persistent device changes behind their own decisions. Do not use another unit's boot image, sector offsets, or storage capacity as this unit's verified values.
 
 ## Dashboard and clean-OS feasibility
 
-A reliable USB data connection is established. The next milestone is the full hardware/build identity and documented software access. If Android app access is supported, an offline 1280×800 kiosk dashboard test could follow after installation approval. Live calendar/weather updates need a separately approved data-delivery design. A kiosk running on stock firmware does not satisfy the clean-OS privacy goal by itself.
+A reliable USB data connection is established. The displayed model/build is identified; the next milestone is software access and direct hardware/partition queries. If Android app access is supported, an offline 1280×800 kiosk dashboard test could follow after installation approval. Live calendar/weather updates need a separately approved data-delivery design. A kiosk running on stock firmware does not satisfy the clean-OS privacy goal by itself.
 
 Clean-OS feasibility is **undetermined**. ADB access alone would not establish that replacing the OS is possible. Before any destructive change, identify the exact board/SoC, storage layout, boot restrictions, display/touch hardware support, a trusted compatible replacement image, and a matching original-firmware backup or factory image with a documented recovery process. Do not assume a generic Android, LineageOS, or Linux image will boot.
 
