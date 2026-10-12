@@ -1,0 +1,14 @@
+# Private local device evidence and configuration
+/local/
+/platform-tools/
+usb-investigation*.json
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python and macOS generated files
+__pycache__/
+*.py[cod]
+.DS_Store
