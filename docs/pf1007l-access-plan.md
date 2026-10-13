@@ -1,6 +1,12 @@
-# PF1007L access plan — approval required before execution
+# PF1007L access and recovery plan
 
-Research date: 2026-10-12. No access helper, payload, or device-changing command has been executed. Official Google Platform-Tools has subsequently been installed with user approval. The frame has not been connected to Wi-Fi by this task.
+Initial research: 2026-10-12. Current milestone: 2026-10-13.
+
+The user approved host-tool setup, backing up a spare SD prefix and writing/read-verifying an 8 KiB FEL stub on that card, plus source-reviewed RAM-only code for read-only storage export. Those steps are complete. FEL directly confirms A33. A lower-clock U-Boot build retains both UMS write protections and has completed a verified 15,758,000,128-byte eMMC user-area capture, including two independent full-device reads and compressed readback. No internal storage writes were sent; no frame network access was enabled by this task.
+
+Separate eMMC hardware boot areas and an actual restore are still unverified. Next, inspect the private verified images offline for board, boot, driver and service facts, then establish recovery coverage before proposing persistent changes. The [hardening plan](privacy-and-hardening-plan.md) includes the user-supplied early-boot MAC/NTP report.
+
+The sections below retain the initial pre-execution research snapshot. The current milestone above supersedes its older tool and untested-route status observations. Approval requirements still apply to unexecuted network, root/debugging, package and internal-firmware changes.
 
 ## Identified unit
 

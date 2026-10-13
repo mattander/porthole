@@ -92,3 +92,17 @@ A reliable USB data connection is established. The displayed model/build is iden
 Clean-OS feasibility is **undetermined**. ADB access alone would not establish that replacing the OS is possible. Before any destructive change, identify the exact board/SoC, storage layout, boot restrictions, display/touch hardware support, a trusted compatible replacement image, and a matching original-firmware backup or factory image with a documented recovery process. Do not assume a generic Android, LineageOS, or Linux image will boot.
 
 Raw device evidence remains local and is deliberately excluded from this repository.
+
+## Verified offline backup milestone — 2026-10-13
+
+With the user's approval, the spare SD card's original 4 MiB prefix was preserved, an 8 KiB FEL stub was written at byte offset 8192, and its prepared prefix was independently read back before ejecting. Inserting it into the frame exposed FEL (`1f3a:efe8`); `sunxi-fel version` directly identified **A33, SoC 00001667**.
+
+Pinned U-Boot v2025.10 source was built with sector writes refused and LUN write protection enabled. The initial exporter lost its disks on macOS. The reviewed START STOP UNIT correction and null-console input guard provided a stable idle export, but a full read later failed after 40 MiB. The frame's whole USB device disappeared. Scoped host logs did not establish a cause; no internal writes or capture-initiated unmount/eject occurred during that attempt. The failed partial image and logs were preserved privately.
+
+A separate RAM-only build used the [matching upstream report's settings](https://github.com/wesbos/photo-frame-dashboard/issues/16): CPU 408 MHz, PMIC changes skipped, and eMMC 4-bit/26 MHz, retaining both write protections and the macOS stability correction. This succeeded over the user's direct Mac connection. Lowering the settings resolved the observed read failure; a power-delivery cause was not measured or established.
+
+The export provided a 32,018,268,160-byte spare SD and a **15,758,000,128-byte eMMC user area**, both external USB whole disks with 512-byte sectors and `WritableMedia=false`. Before capture, the SD prefix fingerprint and stock Android boot header were read twice and matched; the expected eMMC boot-partition offset was independently checked. The new build's two preliminary 256 MiB reads matched.
+
+The full eMMC capture is now verified: two independent full-device reads agreed, the saved image hash matched, no suspicious 0xCC filler was detected by the reviewed helper, and compressed readback matched. The completed image has the exact expected byte count; the compressed image and private hash record are present, permissions are 0600, and no partial image remains in the active backup directory. Raw images, unique identifiers and whole-device hashes are excluded from Git.
+
+This is a verified backup of the exposed eMMC user area, not a proven complete rollback package. Separate hardware boot areas and an actual restore remain unverified. No internal storage writes were sent, no persistent root/debugging or package changes were made, and the task did not enable frame networking. The next authorized work is offline inspection of the verified image and recovery research. Firmware/package changes and networking still require their separate decisions.
