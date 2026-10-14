@@ -13,3 +13,5 @@ QColor calendarPhraseTint(const QString &source, const QColor &background, const
 QList<QTextLayout::FormatRange> briefingFormats(const QString &text, const QJsonArray &segments,
     const QJsonArray &calendars, const QColor &background, const QColor &foreground);
 QString briefingSourceDescription(const QString &text, const QJsonArray &segments, const QJsonArray &calendars);
+struct BriefingCalendarKey {QString name;QColor colour;};
+QList<BriefingCalendarKey> briefingCalendarKey(const QString &text, const QJsonArray &segments, const QJsonArray &calendars);

@@ -103,3 +103,17 @@ QString briefingSourceDescription(const QString &text,const QJsonArray &segments
     }
     return lines.join('\n');
 }
+QList<BriefingCalendarKey> briefingCalendarKey(const QString &text,const QJsonArray &segments,const QJsonArray &calendars) {
+    const auto ranges=phrases(text,segments);if(!ranges)return {};
+    const auto sources=sourceMap(calendars);QSet<QString> included;QList<BriefingCalendarKey> result;
+    for(const auto &range:*ranges) {
+        for(const auto &id:range.ids)if(!sources.contains(id))return {};
+        if(range.ids.size()!=1)continue;
+        const auto id=range.ids.first();if(included.contains(id))continue;
+        const auto &source=sources[id];const auto colour=calendarSourceColour(source.colour);
+        if(!colour||colour->alpha()==0)continue;
+        const auto name=source.name.simplified();
+        result.append({name.isEmpty()?QString("Unnamed calendar"):name,*colour});included.insert(id);
+    }
+    return result;
+}
