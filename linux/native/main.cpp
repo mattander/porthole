@@ -5,6 +5,7 @@
 #include "keyboard.h"
 #include "settings.h"
 #include "briefing-widget.h"
+#include "calendar-style.h"
 #include "dashboard-widgets.h"
 #include "diagnostics.h"
 #include <QTabWidget>
@@ -276,7 +277,7 @@ private:
         ).arg(background,foreground,border,base,muted,accent,selected,selectedText,pressed).arg(dark?"#d7b18c":"#8b542c"));
         QTextCharFormat weekend;weekend.setForeground(QColor(dark?"#ddad9a":"#9a5949"));
         calendar->setWeekdayTextFormat(Qt::Saturday,weekend);calendar->setWeekdayTextFormat(Qt::Sunday,weekend);
-        markDates();
+        markDates();renderAgenda();
     }
     void updateClock() {
         const auto time=now();if(sunDate.isValid()&&sunDate!=time.date()){sunDate={};sunTimes->setText("Sunrise / sunset updating…");if(!demo)refreshWeather();}
@@ -303,6 +304,10 @@ private:
             ++count;
             auto *box=new QWidget;auto *layout=new QVBoxLayout(box);layout->setContentsMargins(16,2,0,8);
             box->setObjectName("agendaEvent");
+            if(const auto colour=calendarSourceColour(event.colour)){
+                const auto bar=compositeCalendarColour(*colour,palette().color(QPalette::Window));
+                box->setStyleSheet("QWidget#agendaEvent {border-left:5px solid "+bar.name()+";}");
+            }
             auto *metadata=label(event.timeLabel()+" · "+event.calendar,16);metadata->setProperty("tone","secondary");layout->addWidget(metadata);
             layout->addWidget(label(event.title,28));
             if(!event.location.isEmpty()){auto *place=label(event.location,16);place->setProperty("tone","secondary");layout->addWidget(place);}
@@ -324,9 +329,9 @@ private:
         selected.clear();events.clear();demo=true;briefing->updateBriefing({},true);
         ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();
         const auto today=now().date();
-        events<<Event{"sample-library","Library visit","Example: after school","Family",QDateTime(today,QTime(16,0),configuredZone()),QDateTime(today,QTime(17,0),configuredZone()),false};
-        events<<Event{"sample-dinner","Dinner together","Example: at home","Home",QDateTime(today,QTime(18,30),configuredZone()),QDateTime(today,QTime(19,30),configuredZone()),false};
-        events<<Event{"sample-soccer","Soccer practice","Example: community field","Family",QDateTime(today.addDays(1),QTime(17,0),configuredZone()),QDateTime(today.addDays(1),QTime(18,0),configuredZone()),false};
+        events<<Event{"sample-library","Library visit","Example: after school","Family",QDateTime(today,QTime(16,0),configuredZone()),QDateTime(today,QTime(17,0),configuredZone()),false,"sample-family","#AF52DE"};
+        events<<Event{"sample-dinner","Dinner together","Example: at home","Home",QDateTime(today,QTime(18,30),configuredZone()),QDateTime(today,QTime(19,30),configuredZone()),false,"sample-home","#E7A82F"};
+        events<<Event{"sample-soccer","Soccer practice","Example: community field","Family",QDateTime(today.addDays(1),QTime(17,0),configuredZone()),QDateTime(today.addDays(1),QTime(18,0),configuredZone()),false,"sample-family","#AF52DE"};
         calendarStatus="Sample calendar · iCloud is not connected";weatherStatus="Sample forecast · not live weather";
         temperature->setText("14°");weather->setText("Partly cloudy");feels->setText("Feels like 12° · High 16° / Low 8°");weatherLocation->setText("Example City");currentIcon->setCode(2);sunDate=today;sunTimes->setText("Sunrise 7:35 AM · Sunset 6:35 PM");
         forecast->setForecast({{today.addDays(1),3,13,7},{today.addDays(2),61,12,5},{today.addDays(3),0,15,6}});

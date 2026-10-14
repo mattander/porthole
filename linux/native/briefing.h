@@ -1,12 +1,18 @@
 #pragma once
 #include "data.h"
+#include <QJsonArray>
 #include <QJsonObject>
+#include <QMap>
 #include <QNetworkAccessManager>
 #include <QPointer>
+#include <QStringList>
 #include <functional>
 
 constexpr int BriefingCharacterLimit=400;
 constexpr int BriefingDailyAttemptLimit=31;
+constexpr int BriefingSegmentLimit=32;
+constexpr int BriefingReferencesPerSegmentLimit=4;
+constexpr qint64 BriefingStateByteLimit=65536; // Covers worst-case accepted UTF-8 metadata plus settings and the durable ledger.
 enum class BriefingPeriod { Morning, Midday, Evening };
 BriefingPeriod briefingPeriod(QDateTime time);
 QString briefingPeriodName(BriefingPeriod period);
@@ -15,6 +21,12 @@ QDateTime nextBriefingCheck(QDateTime time);
 QString boundedBriefing(const QString &text,int maximum=BriefingCharacterLimit);
 QJsonObject briefingContext(const QList<Event> &events,const QJsonObject &weather,QDateTime current);
 QJsonObject briefingRequest(const QJsonObject &context,const QString &priorities);
+
+struct BriefingEventSource {
+    QString calendarId;
+    QString colour;
+    QString name;
+};
 
 class BriefingEngine:public QObject {
     Q_OBJECT
@@ -33,6 +45,7 @@ signals:
 private:
     QString path,keyIdentity,text,status="AI briefing is off",priorities="";
     QByteArray key,lastFingerprint;
+    QJsonArray segments,calendarColours;
     QNetworkAccessManager ownedNetwork;
     QNetworkAccessManager *network;
     std::function<QDateTime()> clock;
@@ -47,6 +60,7 @@ private:
     quint64 generation=0;
     QDateTime timeNow()const;
     bool persist();
+    bool refreshCalendarColours();
     void invalidate(bool clearText);
-    void complete(QNetworkReply *reply,QByteArray fingerprint,QString periodKey,quint64 token);
+    void complete(QNetworkReply *reply,QByteArray fingerprint,QString periodKey,quint64 token,QMap<QString,BriefingEventSource> sources);
 };

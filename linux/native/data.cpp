@@ -1,6 +1,8 @@
 #include "profile.h"
 #include "data.h"
+#include <QCryptographicHash>
 #include <QRegularExpression>
+#include <QSet>
 #include <QTimeZone>
 #include <QXmlStreamReader>
 #include <libical/ical.h>
@@ -11,6 +13,7 @@
 namespace {
 constexpr auto Dav = "DAV:";
 constexpr auto Cal = "urn:ietf:params:xml:ns:caldav";
+const QRegularExpression CalendarIdPattern("\\A[0-9a-f]{64}\\z");
 QString key(const QString &ns, const QString &name) { return ns + '|' + name; }
 bool named(const QXmlStreamReader &xml, const char *ns, const char *name) {
     return xml.namespaceUri() == QLatin1String(ns) && xml.name() == QLatin1String(name);
@@ -82,6 +85,46 @@ QDateTime dateTime(icalcomponent *root, icalproperty *property, icaltimetype tim
 
 QString davProperty(const QString &name) { return key(Dav, name); }
 QString calProperty(const QString &name) { return key(Cal, name); }
+
+QString canonicalCalendarColour(const QString &colour) {
+    static const QRegularExpression valid("\\A#[0-9A-Fa-f]{6}(?:[0-9A-Fa-f]{2})?\\z");
+    if(valid.match(colour).hasMatch())return colour.toUpper();
+    return {};
+}
+
+QString calendarIdentity(const Calendar &calendar) {
+    return QString::fromLatin1(QCryptographicHash::hash(
+        calendar.url.toEncoded(QUrl::FullyEncoded), QCryptographicHash::Sha256).toHex());
+}
+
+QJsonObject calendarEventJson(const Event &event){
+    QString id;if(CalendarIdPattern.match(event.calendarId).hasMatch())id=event.calendarId;
+    return {{"uid",event.uid.left(240)},{"title",event.title},{"location",event.location},
+            {"calendar",event.calendar},{"start",event.start.toString(Qt::ISODate)},
+            {"end",event.end.toString(Qt::ISODate)},{"allDay",event.allDay},
+            {"calendarId",id},
+            {"colour",canonicalCalendarColour(event.colour)}};
+}
+
+std::optional<Event> calendarEventFromJson(const QJsonObject &value){
+    const auto start=QDateTime::fromString(value["start"].toString(),Qt::ISODate).toTimeZone(configuredZone());
+    const auto end=QDateTime::fromString(value["end"].toString(),Qt::ISODate).toTimeZone(configuredZone());
+    if(!start.isValid()||!end.isValid()||end<start)return std::nullopt;
+    const auto candidateId=value["calendarId"].toString();
+    QString id;if(CalendarIdPattern.match(candidateId).hasMatch())id=candidateId;
+    return Event{value["uid"].toString().left(240),value["title"].toString().left(500),
+                 value["location"].toString().left(500),value["calendar"].toString().left(100),
+                 start,end,value["allDay"].toBool(),id,
+                 canonicalCalendarColour(value["colour"].toString())};
+}
+
+bool sameCalendarSelection(const QList<Calendar> &left,const QList<Calendar> &right){
+    if(left.size()!=right.size())return false;
+    QSet<QUrl> leftUrls,rightUrls;
+    for(const auto &calendar:left)leftUrls.insert(calendar.url);
+    for(const auto &calendar:right)rightUrls.insert(calendar.url);
+    return leftUrls.size()==left.size()&&rightUrls.size()==right.size()&&leftUrls==rightUrls;
+}
 
 bool permittedCalendarUrl(const QUrl &url) {
     static const QRegularExpression hosts("^(caldav\\.icloud\\.com|p[0-9]{1,3}-caldav\\.icloud\\.com)$");

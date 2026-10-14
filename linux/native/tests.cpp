@@ -2,6 +2,7 @@
 #include "data.h"
 #include "caldav.h"
 #include <QCoreApplication>
+#include <QRegularExpression>
 #include <QSignalSpy>
 #include <QTest>
 #include <QTimeZone>
@@ -23,11 +24,48 @@ private slots:
         QCOMPARE(calendarHref(QUrl("https://p42-caldav.icloud.com/home/"),"family/"),QUrl("https://p42-caldav.icloud.com/home/family/"));
         QVERIFY_EXCEPTION_THROWN(calendarHref(QUrl("https://caldav.icloud.com/"),"//evil.example/"),std::runtime_error);
     }
+    void calendarColoursAndIdentityAreCanonicalAndStable() {
+        QCOMPARE(canonicalCalendarColour("#12abEF"),QString("#12ABEF"));
+        QCOMPARE(canonicalCalendarColour("#12abEF80"),QString("#12ABEF80"));
+        QVERIFY(canonicalCalendarColour({}).isEmpty());
+        for(const auto &invalid:QStringList{"12ABEF","#123","#123456789","#GG0000"," #123456","#123456\n"})
+            QVERIFY(canonicalCalendarColour(invalid).isEmpty());
+        const Calendar family{QUrl("https://caldav.icloud.com/family/"),"Family","#123456"};
+        const Calendar renamed{family.url,"Renamed","#ABCDEF"};
+        const Calendar second{QUrl("https://caldav.icloud.com/home/"),"Family","#123456"};
+        QCOMPARE(calendarIdentity(family),calendarIdentity(renamed));
+        QVERIFY(calendarIdentity(family)!=calendarIdentity(second));
+        QCOMPARE(calendarIdentity(family).size(),64);
+        QVERIFY(QRegularExpression("\\A[0-9a-f]{64}\\z").match(calendarIdentity(family)).hasMatch());
+    }
+    void calendarEventIpcValidatesMetadata() {
+        const Calendar source{QUrl("https://caldav.icloud.com/family/"),"Family","#12ab34ef"};
+        Event event{"fixture","Dinner","Home",source.name,QDateTime(QDate(2026,10,14),QTime(18,0),configuredZone()),QDateTime(QDate(2026,10,14),QTime(19,0),configuredZone()),false,calendarIdentity(source),source.colour};
+        const auto parsed=calendarEventFromJson(calendarEventJson(event));QVERIFY(parsed);QCOMPARE(parsed->calendarId,event.calendarId);QCOMPARE(parsed->colour,QString("#12AB34EF"));
+        auto invalid=calendarEventJson(event);invalid["calendarId"]="private-provider-url";invalid["colour"]="#xyz";
+        const auto sanitized=calendarEventFromJson(invalid);QVERIFY(sanitized);QVERIFY(sanitized->calendarId.isEmpty());QVERIFY(sanitized->colour.isEmpty());
+        invalid=calendarEventJson(event);invalid["calendarId"]=event.calendarId+'\n';invalid["colour"]="#123456\n";
+        const auto newline=calendarEventFromJson(invalid);QVERIFY(newline);QVERIFY(newline->calendarId.isEmpty());QVERIFY(newline->colour.isEmpty());
+        invalid["start"]="not-a-date";QVERIFY(!calendarEventFromJson(invalid));
+    }
+    void selectionReconciliationUsesProviderIdentity() {
+        const Calendar first{QUrl("googlecalendar:/one"),"Same","#111111"};
+        const Calendar recoloured{first.url,"Renamed","#222222"};
+        const Calendar removed{QUrl("googlecalendar:/two"),"Same","#111111"};
+        QVERIFY(sameCalendarSelection({first},{recoloured}));
+        QVERIFY(sameCalendarSelection({first,removed},{removed,recoloured}));
+        QVERIFY(!sameCalendarSelection({first},{removed}));
+        QVERIFY(!sameCalendarSelection({first,removed},{first}));
+        QVERIFY(!sameCalendarSelection({first,first},{first,removed}));
+    }
     void discoveryUsesNamespacesAndSuccessfulProperties() {
-        const auto responses=parseDav(R"(<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:response><d:href>/family/</d:href><d:propstat><d:prop><d:displayname>Family &amp; friends</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype><c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat><d:propstat><d:prop><c:calendar-home-set><d:href>https://evil.example/</d:href></c:calendar-home-set></d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat></d:response></d:multistatus>)");
+        const auto responses=parseDav(R"(<d:multistatus xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:a="http:)"
+                                      "//apple.com/ns/ical/"
+                                      R"("><d:response><d:href>/family/</d:href><d:propstat><d:prop><d:displayname>Family &amp; friends</d:displayname><d:resourcetype><d:collection/><c:calendar/></d:resourcetype><c:supported-calendar-component-set><c:comp name="VEVENT"/></c:supported-calendar-component-set><a:calendar-color>#1a2B3c80</a:calendar-color></d:prop><d:status>HTTP/1.1 200 OK</d:status></d:propstat><d:propstat><d:prop><c:calendar-home-set><d:href>https://evil.example/</d:href></c:calendar-home-set></d:prop><d:status>HTTP/1.1 404 Not Found</d:status></d:propstat></d:response></d:multistatus>)");
         QCOMPARE(responses.size(),1);
         QCOMPARE(responses[0].properties.value(davProperty("displayname")),QString("Family & friends"));
         QCOMPARE(responses[0].properties.value(davProperty("resourcetype")),QString("calendar"));
+        QCOMPARE(responses[0].properties.value("http://apple.com/ns/ical/|calendar-color"),QString("#1a2B3c80"));
         QVERIFY(!responses[0].properties.contains(calProperty("calendar-home-set")));
         QVERIFY_EXCEPTION_THROWN(parseDav("<multistatus/>"),std::runtime_error);
         QVERIFY_EXCEPTION_THROWN(parseDav("<d:multistatus xmlns:d='DAV:'></d:multistatus>bad"),std::runtime_error);

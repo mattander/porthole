@@ -12,7 +12,7 @@ namespace {
 struct PendingRead {QByteArray bytes;bool completed=false;};
 QList<Calendar> calendars(const QJsonArray &values){
     QList<Calendar> result;
-    for(const auto &value:values){const auto item=value.toObject();const QUrl url(item["url"].toString());if(permittedCalendarUrl(url)||isGoogleCalendarUrl(url))result<<Calendar{url,item["name"].toString().left(100)};}
+    for(const auto &value:values){const auto item=value.toObject();const QUrl url(item["url"].toString());if(permittedCalendarUrl(url)||isGoogleCalendarUrl(url))result<<Calendar{url,item["name"].toString().left(100),canonicalCalendarColour(item["colour"].toString())};}
     return result;
 }
 }
@@ -66,8 +66,7 @@ void CalendarClient::receive(const QJsonObject &reply){
     if(reply.contains("events")){
         QList<Event> loaded;
         for(const auto &value:reply["events"].toArray()){
-            const auto e=value.toObject();Event event{e["uid"].toString(),e["title"].toString(),e["location"].toString(),e["calendar"].toString(),QDateTime::fromString(e["start"].toString(),Qt::ISODate).toTimeZone(configuredZone()),QDateTime::fromString(e["end"].toString(),Qt::ISODate).toTimeZone(configuredZone()),e["allDay"].toBool()};
-            if(event.start.isValid()&&event.end.isValid())loaded<<event;
+            const auto event=calendarEventFromJson(value.toObject());if(event)loaded<<*event;
         }
         eventRevision=reply["eventsRevision"].toInteger();emit eventsReady(loaded,QDate::fromString(reply["month"].toString(),Qt::ISODate));
     }

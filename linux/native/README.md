@@ -125,3 +125,31 @@ Calendar API connector. Settings → Calendars contains independent iCloud and
 Google account controls. Both sources feed the sorted agenda and briefing; the
 briefing waits for fresh data from every configured source. See
 [Google setup](../google/README.md) for the once-only Mac browser sign-in.
+
+## Calendar colours and briefing sources
+
+Agenda bars use the selected calendar's source colour, with its name kept visible.
+iCloud colours come from the Apple CalDAV `calendar-color` property; Google uses
+the calendar list's background colour. Missing or malformed colours retain the
+ordinary agenda accent. Calendar identity is independent of its display name.
+
+The briefing returns bounded JSON text segments referencing short, request-local
+event identifiers. The backend validates references against the exact request,
+then resolves them to local calendar identities. Provider URLs, private event
+UIDs and colour values are not sent to the model. Weather and connecting words
+stay neutral; a phrase combining calendars also stays neutral.
+
+The native text renderer applies a soft calendar tint behind a source phrase,
+preserving the normal foreground and the existing measured wrapping. It tests
+the actual blended background against a 4.5:1 text contrast target in both themes.
+Apple RGBA colours are interpreted in their source channel order and composited
+before tinting. Tap the briefing to see its phrase-to-calendar source labels;
+the same descriptions are exposed to assistive technology. Titles and generated
+text remain plain text, never model-supplied markup.
+
+The complete briefing remains limited to 400 Unicode codepoints and fitted inside
+the fixed panel in both orientations. Invalid segment metadata displays plain
+text, while an invalid generated response keeps the last accepted briefing.
+Legacy cached briefings remain readable without styling. Cached source mappings
+are private alongside the existing briefing cache; local colour updates do not
+require another paid request. Request timing and spending limits still apply.
