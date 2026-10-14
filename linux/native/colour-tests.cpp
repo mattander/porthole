@@ -4,6 +4,8 @@
 #include <QLabel>
 #include <QPixmap>
 #include <QToolTip>
+#include <QScrollArea>
+#include <QScrollBar>
 #include <QtTest>
 
 namespace {
@@ -46,6 +48,43 @@ private slots:
         auto duplicate=calendars();duplicate.append(duplicate.first());QVERIFY(briefingFormats(content(),segments(),duplicate,Qt::white,Qt::black).isEmpty());
         const QString joined=QString::fromUtf8("á");const QJsonArray split{QJsonObject{{"text","a"},{"calendar_ids",QJsonArray{"school"}}},QJsonObject{{"text",joined.mid(1)},{"calendar_ids",QJsonArray{}}}};
         QVERIFY(briefingFormats(joined,split,calendars(),Qt::white,Qt::black).isEmpty());
+    }
+    void calendarKeyUsesOnlyValidTintedSourcesInPhraseOrder(){
+        auto sources=calendars();sources.append(QJsonObject{{"id","unused"},{"name","Not referenced"},{"colour","#112233"}});
+        auto parts=segments();parts.append(QJsonObject{{"text"," Photo day again."},{"calendar_ids",QJsonArray{"school"}}});
+        const auto keys=briefingCalendarKey(content()+" Photo day again.",parts,sources);
+        QCOMPARE(keys.size(),2);QCOMPARE(keys[0].name,QString("School"));QCOMPARE(keys[1].name,QString("Family"));QCOMPARE(keys[0].colour,QColor("#E7A82F"));
+        auto first=parts[0].toObject();first["calendar_ids"]=QJsonArray{"school","family"};parts[0]=first;
+        const auto mixed=briefingCalendarKey(content()+" Photo day again.",parts,sources);QCOMPARE(mixed.size(),2);QCOMPARE(mixed[0].name,QString("Family"));
+        first["calendar_ids"]=QJsonArray{"unknown"};parts[0]=first;QVERIFY(briefingCalendarKey(content()+" Photo day again.",parts,sources).isEmpty());
+        QVERIFY(briefingCalendarKey(content()+"changed",segments(),sources).isEmpty());
+        auto transparent=sources[0].toObject();transparent["colour"]="#11223300";sources[0]=transparent;
+        const auto remaining=briefingCalendarKey(content(),segments(),sources);QCOMPARE(remaining.size(),1);QCOMPARE(remaining[0].name,QString("Family"));
+    }
+    void calendarKeySitsBelowTextAndClearsWithPlainBriefings(){
+        BriefingWidget widget;widget.show();
+        auto sources=calendars();auto named=sources[0].toObject();named["name"]="<b>School & lunch</b>";sources[0]=named;
+        for(bool dark:{false,true})for(int width:{620,744,300,150}){
+            QPalette palette;palette.setColor(QPalette::Window,QColor(dark?"#171d25":"#f6f5ef"));palette.setColor(QPalette::WindowText,QColor(dark?"#e6ebe9":"#253c3c"));widget.setPalette(palette);
+            widget.resize(width,166);widget.updateBriefing({{"enabled",true},{"text",content()},{"segments",segments()},{"calendar_colours",sources}});QTest::qWait(10);
+            auto *key=widget.findChild<QLabel*>("briefingCalendarKey");auto *body=widget.findChild<QLabel*>("briefingText");auto *area=widget.findChild<QWidget*>("briefingKeyArea");QVERIFY(key);QVERIFY(body);QVERIFY(area);
+            QVERIFY(area->isVisible());QCOMPARE(key->textFormat(),Qt::PlainText);QVERIFY(key->text().contains("<b>School & lunch</b>"));QVERIFY(key->accessibleDescription().contains("Family"));
+            const auto keyRect=QRect(area->mapTo(&widget,QPoint()),area->size());const auto bodyRect=QRect(body->mapTo(&widget,QPoint()),body->size());
+            QVERIFY(widget.rect().contains(keyRect));QVERIFY(widget.rect().contains(bodyRect));QVERIFY(keyRect.top()>bodyRect.bottom());QVERIFY(keyRect.top()-bodyRect.bottom()<=9);
+            widget.updateBriefing({{"enabled",true},{"text",content()}});QVERIFY(!area->isVisible());QVERIFY(key->text().isEmpty());QVERIFY(key->accessibleDescription().isEmpty());
+        }
+    }
+    void manyLongCalendarNamesRemainReachableWithoutGrowingThePanel(){
+        QJsonArray parts,sources;QString copy;
+        for(int i=0;i<12;++i){
+            const auto id=QString::number(i),phrase=QString("Plan %1. ").arg(i);
+            copy+=phrase;parts.append(QJsonObject{{"text",phrase},{"calendar_ids",QJsonArray{id}}});
+            sources.append(QJsonObject{{"id",id},{"name",QString("A long household calendar name %1").arg(i)},{"colour","#AF52DE"}});
+        }
+        BriefingWidget widget;widget.resize(300,166);widget.show();widget.updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",sources}});QTest::qWait(10);
+        auto *area=widget.findChild<QScrollArea*>("briefingKeyArea");auto *key=widget.findChild<QLabel*>("briefingCalendarKey");QVERIFY(area);QVERIFY(key);
+        QCOMPARE(widget.height(),166);QVERIFY(area->height()<=48);QVERIFY(key->height()>area->height());QVERIFY(key->accessibleDescription().contains("calendar name 11"));
+        QVERIFY(area->verticalScrollBar()->maximum()>0);area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());QVERIFY(area->verticalScrollBar()->value()>0);QCOMPARE(widget.visibleText(),copy);
     }
     void nativePaintAndSourceLabelsSurviveThemeAndSizeChanges(){
         BriefingWidget widget;widget.show();

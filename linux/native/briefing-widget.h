@@ -5,6 +5,8 @@
 
 QString fittingBriefing(QString text,const QFont &font,QSize area);
 class BriefingText;
+class CalendarKey;
+class QScrollArea;
 class BriefingWidget:public QWidget {
 public:
     explicit BriefingWidget(QWidget *parent=nullptr);
@@ -14,6 +16,8 @@ protected:
     void resizeEvent(QResizeEvent *event)override;
 private:
     BriefingText *body;
+    CalendarKey *key;
+    QScrollArea *keyArea;
     QLabel *stamp;
     QString fullText;
     void fit();

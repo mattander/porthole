@@ -38,6 +38,10 @@ The `wifi-ui-responsiveness` test uses a private D-Bus daemon and a deliberately
 
 The AI briefing sits below the weather in a fixed-height area. It has a backend
 400-character limit and a separate pixel-fit renderer for both orientations.
+A small key directly beneath tinted phrases pairs calendar colours with readable
+names, once per referenced calendar. It hides for plain-text briefings and neutral
+multi-calendar phrases. The key wraps; unusually long lists scroll within a
+bounded touch area, preserving the briefing panel and full calendar names.
 Settings → AI controls priorities, enable/pause, request timing and a local
 monthly spending cap. The OpenAI key is entered privately on the Mac and
 transferred over USB; see [AI setup](../ai/README.md).
