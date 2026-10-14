@@ -59,6 +59,15 @@ private slots:
         }
         QCOMPARE(calls,2);
     }
+    void softwareControlsUseCallbacksAndSafeStates(){
+        QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int checks=0,toggles=0;bool enabled=true;
+        SettingsActions actions;actions.checkUpdates=[&]{++checks;};actions.automaticUpdates=[&](bool value){++toggles;enabled=value;};SettingsPane pane(&wifi,actions,&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(3);
+        auto *button=pane.findChild<QPushButton*>("checkUpdates");auto *automatic=pane.findChild<QCheckBox*>("automaticUpdates");QVERIFY(button&&automatic);QVERIFY(!button->isEnabled());
+        pane.updateSoftware(SoftwareUpdate{UpdatePhase::Current,UpdateFailure::None,true,"2026.10.14.1",{}});QCOMPARE(toggles,0);QVERIFY(button->isEnabled());QVERIFY(automatic->isChecked());
+        QTest::mouseClick(button,Qt::LeftButton);QCOMPARE(checks,1);QTest::mouseClick(automatic,Qt::LeftButton);QCOMPARE(toggles,1);QVERIFY(!enabled);
+        pane.updateSoftware(SoftwareUpdate{UpdatePhase::Installing,UpdateFailure::None,false,"2026.10.14.1",{}});QVERIFY(!button->isEnabled());QCOMPARE(toggles,1);
+        pane.updateSoftware(SoftwareUpdate{UpdatePhase::RolledBack,UpdateFailure::Health,false,"2026.10.14.1",{}});QVERIFY(pane.findChild<QLabel*>("softwareStatus")->text().contains("Previous version restored"));QVERIFY(button->isEnabled());
+    }
     void diagnosticPaneShowsErrorsAndCopiesOnlySafeState(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);SettingsActions actions;actions.refresh=[]{};
         SettingsPane pane(&wifi,actions,&parent);Diagnostics diagnostics;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);auto state=diagnostics.snapshot();state["password"]="private-secret";pane.updateDiagnostics(state);pane.show();

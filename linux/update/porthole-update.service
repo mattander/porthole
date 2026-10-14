@@ -1,0 +1,31 @@
+[Unit]
+Description=Porthole signed application update installer
+After=local-fs.target
+Before=porthole-calendar.service porthole-kiosk.service
+[Service]
+Type=notify
+NotifyAccess=main
+User=root
+Group=porthole
+RuntimeDirectory=porthole-update
+RuntimeDirectoryMode=0750
+StateDirectory=porthole-updater
+StateDirectoryMode=0700
+ExecStart=/usr/bin/python3 -I /usr/local/lib/porthole/update/update_service.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/run/porthole-update /var/lib/porthole-updater /usr/local/bin
+RestrictAddressFamilies=AF_UNIX
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_KILL
+AmbientCapabilities=CAP_DAC_OVERRIDE CAP_SETUID CAP_SETGID CAP_KILL
+LimitCORE=0
+UMask=0077
+TimeoutStartSec=30
+TimeoutStopSec=5
+[Install]
+WantedBy=multi-user.target

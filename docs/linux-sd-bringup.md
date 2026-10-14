@@ -285,3 +285,28 @@ and used tomorrow's daily high/low forecast without invented preparation chores
 or semicolons. A calendar-service restart reused that exact corrected text,
 generation timestamp, attempt count and spending amount, with healthy source
 status and no additional OpenAI request. Existing iCloud login and AI key recovered.
+
+### Signed application update channel (October 14, 2026)
+
+The application now has an outbound-only Wi-Fi update channel using a configured
+public GitHub release repository and a locally enrolled RSA verification key.
+Private signing material stays on the publishing machine outside Git. The
+restricted downloader has no root privileges; the local installer independently
+checks signatures, bounded archive/file hashes, platform and executable headers.
+Only the two app binaries are eligible, with monotonically increasing sequences.
+Profile, credentials, Wi-Fi, cache/ledger, firmware and kernel are preserved.
+
+The tested Settings controls use the existing Data pane, with software status,
+manual checking and an automatic-update toggle. Light landscape and dark portrait
+previews were inspected, and all eight native suites plus nine updater security/
+transaction tests passed. An initial bootstrap stopped before installation on a
+relative sysusers path; it was corrected to use an absolute path and failure cleanup.
+Initial signed probes were held back before replacing binaries because the Python
+service did not retain its setuid capability. Explicit ambient inheritance and a
+fixed-purpose `setpriv` identity drop corrected that sandbox boundary.
+
+A private signed test app that passed its lightweight probe but failed GUI startup
+was then installed on the actual frame. The installer detected the missing window,
+restored both previous binaries exactly, removed the pending journal and restarted
+calendar, kiosk and rotation successfully. The failed sequence was retained to
+prevent automatic retries. No failed test release was published publicly.

@@ -1,5 +1,6 @@
 #include "profile.h"
 #include "calendar-client.h"
+#include "update-client.h"
 #include "keyboard.h"
 #include "settings.h"
 #include "briefing-widget.h"
@@ -61,6 +62,7 @@ QLabel *label(QString text, int size, QWidget *parent=nullptr) {
 
 class Dashboard : public QWidget {
     CalendarClient caldav{this,QApplication::arguments().contains("--demo")};
+    UpdateClient updates{this,QApplication::arguments().contains("--demo")};
     QNetworkAccessManager weatherNetwork{this};
     WifiController wifi{this,QApplication::arguments().contains("--preview-settings")};
     QPointer<SettingsPane> settings;
@@ -125,6 +127,7 @@ public:
         root->addWidget(footer);
         connect(footer,&DashboardFooter::viewRequested,this,&Dashboard::changeView);
         connect(footer,&DashboardFooter::settingsRequested,this,&Dashboard::showSettings);
+        connect(&updates,&UpdateClient::changed,this,[this]{syncSettings();});
         connect(&caldav,&CalendarClient::profileChanged,this,[this](const QJsonObject &){
             if(demo)return;
             ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();lastWeather={};sunDate={};weatherStale=false;
@@ -207,11 +210,13 @@ private:
         QStringList names;for(const auto &calendar:selected)names<<calendar.name;
         settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
         settings->updateDiagnostics(diagnosticState());
+        settings->updateSoftware(updates.state());
         settings->updateState(calendarStatus,weatherStatus,names,darkTheme,demo,caldav.hasAccount(),!caldav.availableCalendars().isEmpty());
     }
     void showSettings() {
         if(settings){settings->raise();return;}
         SettingsActions actions;actions.profile=[this](QJsonObject value){caldav.saveProfile(value);};
+        actions.checkUpdates=[this]{updates.check();};actions.automaticUpdates=[this](bool enabled){updates.automatic(enabled);};
         actions.signIn=[this]{signIn();};
         actions.signOut=[this]{if(QMessageBox::question(settings?static_cast<QWidget*>(settings.data()):this,"Forget iCloud account","Remove the saved sign-in and calendar selection from this frame? Wi-Fi remains saved.")==QMessageBox::Yes){caldav.forgetAccount();selected.clear();events.clear();calendarStatus="Forgetting iCloud account…";renderAgenda();markDates();}};
         actions.changeCalendars=[this]{chooseCalendars(caldav.availableCalendars());};

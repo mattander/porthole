@@ -154,6 +154,20 @@ weather, household context and priorities to OpenAI. Account identifiers, event
 UIDs, descriptions, attendees and locations are omitted from the current request.
 The API key stays in the backend and requests use `store: false`.
 
+## Updates over Wi-Fi
+
+A bootstrapped frame checks for signed app releases about hourly over Wi-Fi. Open
+**Settings → Data → Software updates** to check immediately or pause automatic
+updates. A verified release briefly restarts the dashboard and retains your
+settings and saved accounts. Failed startup restores the previous app binaries.
+
+Updates use outbound HTTPS, with no inbound server or device-address discovery.
+Publish a signed release after building/testing; pushing source alone does not
+update the frame. The signing key stays on the publishing machine. See
+[bootstrap, release publishing and recovery](linux/update/README.md). This channel
+updates the app/calendar backend, while kernel and firmware remain separate
+maintenance work.
+
 ## Other previews
 
 The older [web frontend](web/README.md) and

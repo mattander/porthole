@@ -15,6 +15,7 @@
 #include <QFrame>
 #include <QScrollArea>
 #include <QScroller>
+#include <QSignalBlocker>
 #include <QScrollBar>
 #include <QTabWidget>
 #include <QTimer>
@@ -102,6 +103,13 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
         });dialog.exec();
     });
     auto *refresh=action("Refresh live data");data->addWidget(refresh,0,Qt::AlignLeft);connect(refresh,&QPushButton::clicked,this,actions.refresh);
+    data->addWidget(text("Software updates",22));softwareStatus=text("Update service is not connected",18);softwareStatus->setObjectName("softwareStatus");data->addWidget(softwareStatus);
+    automaticUpdates=new TouchCheckBox("Install updates automatically");automaticUpdates->setMinimumHeight(48);automaticUpdates->setObjectName("automaticUpdates");data->addWidget(automaticUpdates);
+    checkUpdates=action("Check for updates");checkUpdates->setObjectName("checkUpdates");data->addWidget(checkUpdates,0,Qt::AlignLeft);
+    connect(automaticUpdates,&QCheckBox::clicked,this,[actions](bool enabled){if(actions.automaticUpdates)actions.automaticUpdates(enabled);});
+    connect(checkUpdates,&QPushButton::clicked,this,[actions]{if(actions.checkUpdates)actions.checkUpdates();});
+    data->addWidget(text("Checks run hourly over Wi-Fi. Installing an update briefly restarts the dashboard. Your settings and saved accounts stay on this frame.",16,true));
+    updateSoftware(std::nullopt);
     auto *line=new QFrame;line->setFrameShape(QFrame::HLine);data->addWidget(line);data->addWidget(text("Data mode",22));modeStatus=text("",17,true);data->addWidget(modeStatus);
     auto *modes=new QHBoxLayout;auto *live=action("Use live data"),*sample=action("View sample data");modes->addWidget(live);modes->addWidget(sample);modes->addStretch();data->addLayout(modes);
     connect(live,&QPushButton::clicked,this,actions.useLive);connect(sample,&QPushButton::clicked,this,actions.useSample);
@@ -184,4 +192,15 @@ void SettingsPane::updateDiagnostics(const QJsonObject &state){
 
 void SettingsPane::updateProfile(const QJsonObject &profile){
     const auto parsed=HouseholdProfile::parse(profile);if(const auto *value=std::get_if<HouseholdProfile>(&parsed)){lastProfile=value->json();profileInfo->setText((value->weather()?value->weather()->label():QString("Weather is not configured"))+" · "+QString::fromUtf8(value->zone().id()));householdContext->setText(value->familyContext());}
+}
+
+void SettingsPane::updateSoftware(const std::optional<SoftwareUpdate> &state){
+    const QSignalBlocker blocker(automaticUpdates);
+    automaticUpdates->setEnabled(state.has_value());checkUpdates->setEnabled(state&&state->phase!=UpdatePhase::Checking&&state->phase!=UpdatePhase::Installing);
+    if(!state){softwareStatus->setText("Update service is not connected");return;}
+    automaticUpdates->setChecked(state->automatic);
+    auto value=QString("Version %1 · %2").arg(state->version,updatePhaseText(state->phase));
+    if(state->checked.isValid())value+="\nLast checked: "+state->checked.toTimeZone(configuredZone()).toString("ddd h:mm AP");
+    const auto failure=updateFailureText(state->failure);if(!failure.isEmpty())value+="\n"+failure;
+    softwareStatus->setText(value);
 }

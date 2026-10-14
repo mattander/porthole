@@ -121,7 +121,8 @@ private:
             buffer->append(socket->readAll());if(buffer->size()>16384){socket->abort();return;}const int end=buffer->indexOf('\n');if(end<0)return;socket->setProperty("handled",true);
             const auto request=QJsonDocument::fromJson(buffer->left(end)).object();buffer->fill('\0');buffer->clear();QJsonObject reply{{"ok",true}};
             const auto kind=request["type"].toString();
-            if(kind=="status")reply=snapshot(request["eventsRevision"].toInteger(-1));
+            if(kind=="ping")reply={{"ok",true},{"instance",instance}};
+            else if(kind=="status")reply=snapshot(request["eventsRevision"].toInteger(-1));
             else if(kind=="login"){
                 const auto email=request["account"].toString();const auto secret=request["password"].toString().toLatin1();
                 if(!validAccount(email,secret))reply={{"error","Use your Apple Account email and dedicated app-specific password."}};
@@ -165,4 +166,4 @@ private:
         });
     }
 };
-int main(int argc,char **argv){QCoreApplication app(argc,argv);if(argc==3&&QString::fromLocal8Bit(argv[1])=="--check-profile"){const auto path=QString::fromLocal8Bit(argv[2]);if(!QFile::exists(path))return 2;const auto check=loadProfile(path);const bool valid=std::holds_alternative<HouseholdProfile>(check);QTextStream(stdout)<<"Profile valid: "<<valid<<"\n";return valid?0:2;}const auto parsed=loadProfile("/var/lib/porthole-calendar/profile.json");if(const auto *profile=std::get_if<HouseholdProfile>(&parsed))setHouseholdProfile(*profile);else return 2;auto *user=getpwnam("porthole");if(!user)return 1;CalendarService service(user->pw_uid);return app.exec();}
+int main(int argc,char **argv){QCoreApplication app(argc,argv);if(argc==3&&QString::fromLocal8Bit(argv[1])=="--check-profile"){const auto path=QString::fromLocal8Bit(argv[2]);if(!QFile::exists(path))return 2;const auto check=loadProfile(path);const bool valid=std::holds_alternative<HouseholdProfile>(check);QTextStream(stdout)<<"Profile valid: "<<valid<<"\n";return valid?0:2;}const auto parsed=loadProfile("/var/lib/porthole-calendar/profile.json");if(const auto *profile=std::get_if<HouseholdProfile>(&parsed))setHouseholdProfile(*profile);else return 2;auto *user=getpwnam("porthole");if(!user)return 1;if(argc==2&&QString::fromLocal8Bit(argv[1])=="--self-check"){QTextStream(stdout)<<"Configured profile valid: 1\n";return 0;}CalendarService service(user->pw_uid);return app.exec();}

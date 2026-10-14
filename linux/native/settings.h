@@ -1,5 +1,6 @@
 #pragma once
 #include "wifi.h"
+#include "update-client.h"
 #include <QDialog>
 #include <QLabel>
 #include <QListWidget>
@@ -16,6 +17,8 @@ struct SettingsActions {
     std::function<void(bool,QString,int)> briefing;
     std::function<void()> refreshBriefing,forgetBriefingKey,clearDiagnosticHistory;
     std::function<void(QJsonObject)> profile;
+    std::function<void()> checkUpdates;
+    std::function<void(bool)> automaticUpdates;
 };
 class SettingsPane : public QDialog {
 public:
@@ -24,6 +27,7 @@ public:
     void updateProfile(const QJsonObject &profile);
     void updateBriefing(const QJsonObject &state);
     void updateDiagnostics(const QJsonObject &state);
+    void updateSoftware(const std::optional<SoftwareUpdate> &state);
 private:
     QLabel *calendarStatus,*weatherStatus,*calendarNames,*modeStatus;
     QPushButton *lightButton,*darkButton,*signOutButton,*chooseButton;
@@ -36,4 +40,7 @@ private:
     QJsonObject lastDiagnostics,lastProfile;
     QLabel *profileInfo;
     QLineEdit *householdContext;
+    QLabel *softwareStatus;
+    QCheckBox *automaticUpdates;
+    QPushButton *checkUpdates;
 };

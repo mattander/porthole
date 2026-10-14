@@ -1,0 +1,9 @@
+[Unit]
+Description=Hourly signed Porthole update checks
+[Timer]
+OnBootSec=5min
+OnUnitInactiveSec=1h
+RandomizedDelaySec=5min
+Unit=porthole-update-check.service
+[Install]
+WantedBy=timers.target
