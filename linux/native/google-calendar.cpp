@@ -33,7 +33,7 @@ std::optional<QList<Event>> parseGoogleEvents(const QJsonObject &page,const Cale
         const auto start=googleTime(e["start"].toObject()),end=googleTime(e["end"].toObject());
         const bool allDay=e["start"].toObject().contains("date");
         if(!e["id"].isString()||e["id"].toString().isEmpty()||e["id"].toString().size()>1024||!start.isValid()||!end.isValid()||end<=start||allDay!=e["end"].toObject().contains("date"))return std::nullopt;
-        result<<Event{"google:"+calendar.url.path()+":"+e["id"].toString(),e["summary"].toString("Untitled event").left(500),e["location"].toString().left(500),calendar.name,start,end,allDay};
+        result<<Event{"google:"+calendar.url.path()+":"+e["id"].toString(),e["summary"].toString("Untitled event").left(500),e["location"].toString().left(500),calendar.name,start,end,allDay,calendarIdentity(calendar),canonicalCalendarColour(calendar.colour)};
     }
     return result;
 }
@@ -72,10 +72,10 @@ void GoogleCalendar::request(QUrl url,QByteArray body,Callback done,bool refresh
 void GoogleCalendar::discover(){if(busy||!credentials)return;busy=true;ready([this]{listPage({},{});});}
 void GoogleCalendar::listPage(QString page,QList<Calendar> calendars,int pages){
     if(pages>=10){fail("Google calendar list exceeded the supported limit.");return;}
-    QUrl url("https://www.googleapis.com/calendar/v3/users/me/calendarList");QUrlQuery query;query.addQueryItem("maxResults","250");query.addQueryItem("minAccessRole","reader");query.addQueryItem("fields","items(id,summary,primary,deleted),nextPageToken");if(!page.isEmpty())query.addQueryItem("pageToken",page);url.setQuery(query);
+    QUrl url("https://www.googleapis.com/calendar/v3/users/me/calendarList");QUrlQuery query;query.addQueryItem("maxResults","250");query.addQueryItem("minAccessRole","reader");query.addQueryItem("fields","items(id,summary,primary,deleted,backgroundColor),nextPageToken");if(!page.isEmpty())query.addQueryItem("pageToken",page);url.setQuery(query);
     request(url,{},[this,calendars,pages](const QJsonObject &value)mutable{
         if(!value["items"].isArray()){fail("Google calendar list could not be read.");return;}
-        for(const auto &v:value["items"].toArray()){const auto item=v.toObject();const auto id=item["id"].toString();if(item["deleted"].toBool())continue;if(id.isEmpty()||id.size()>1024||calendars.size()>=250){fail("Google calendar list exceeded the supported limit.");return;}Calendar c{googleCalendarUrl(id),item["summary"].toString("Google calendar").left(100)};if(item["primary"].toBool())calendars.prepend(c);else calendars<<c;}
+        for(const auto &v:value["items"].toArray()){const auto item=v.toObject();const auto id=item["id"].toString();if(item["deleted"].toBool())continue;if(id.isEmpty()||id.size()>1024||calendars.size()>=250){fail("Google calendar list exceeded the supported limit.");return;}Calendar c{googleCalendarUrl(id),item["summary"].toString("Google calendar").left(100),canonicalCalendarColour(item["backgroundColor"].toString())};if(item["primary"].toBool())calendars.prepend(c);else calendars<<c;}
         const auto next=value["nextPageToken"].toString();if(next.size()>2048){fail("Google calendar list could not be read.");return;}if(!next.isEmpty()){listPage(next,calendars,pages+1);return;}busy=false;emit calendarsReady(calendars);
     });
 }

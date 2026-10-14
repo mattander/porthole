@@ -18,11 +18,12 @@ public:
 class GoogleTransport:public QNetworkAccessManager{
 public:
     int refreshes=0,eventPages=0;bool expired=false,revoke=false,redirect=false;QList<QNetworkRequest> requests;QList<Operation> operations;QByteArray refreshBody;
+    QByteArray calendarListBody=R"({"items":[{"id":"work@example.invalid","summary":"Work","primary":true,"backgroundColor":"#1a73e8"}]})";
     QNetworkReply *createRequest(Operation op,const QNetworkRequest &r,QIODevice *out)override{
         requests<<r;operations<<op;int code=200;QByteArray body;
         if(r.url().host()=="oauth2.googleapis.com"){++refreshes;refreshBody=out->readAll();if(revoke){code=400;body=R"({"error":"invalid_grant"})";}else body=R"({"access_token":"fixture-access","token_type":"Bearer","expires_in":3600,"scope":"https://www.googleapis.com/auth/calendar.readonly"})";}
         else if(redirect){code=302;body="{}";}
-        else if(r.url().path().endsWith("calendarList"))body=R"({"items":[{"id":"work@example.invalid","summary":"Work","primary":true}]})";
+        else if(r.url().path().endsWith("calendarList"))body=calendarListBody;
         else {++eventPages;QUrlQuery q(r.url());if(expired){expired=false;code=401;body="{}";}else if(q.queryItemValue("pageToken").isEmpty())body=R"({"items":[{"id":"one","summary":"School lunch","start":{"date":"2026-10-16"},"end":{"date":"2026-10-17"}}],"nextPageToken":"next"})";else body=R"({"items":[{"id":"two","summary":"Meeting","start":{"dateTime":"2026-10-16T15:00:00Z"},"end":{"dateTime":"2026-10-16T16:00:00Z"}},{"id":"gone","status":"cancelled"}]})";}
         return new GoogleReply(r,body,code,this);
     }
@@ -38,8 +39,15 @@ private slots:
         value=credentials();value["refresh_token"]="a+b&c=d";const auto parsed=GoogleCredentials::parse(value);QVERIFY(parsed);QUrlQuery query(QString::fromUtf8(parsed->refreshBody()));QCOMPARE(query.queryItemValue("refresh_token",QUrl::FullyDecoded),QString("a+b&c=d"));
     }
     void datesAndExclusiveEnd(){
-        const Calendar c{googleCalendarUrl("fixture"),"Fixture"};const auto page=QJsonDocument::fromJson(R"({"items":[{"id":"a","start":{"date":"2026-10-16"},"end":{"date":"2026-10-17"}}]})").object();const auto events=parseGoogleEvents(page,c);QVERIFY(events);QCOMPARE(events->size(),1);QVERIFY(events->first().onDate(QDate(2026,10,16)));QVERIFY(!events->first().onDate(QDate(2026,10,15)));QVERIFY(!events->first().onDate(QDate(2026,10,17)));
+        const Calendar c{googleCalendarUrl("fixture"),"Fixture","#aBcDeF"};const auto page=QJsonDocument::fromJson(R"({"items":[{"id":"a","start":{"date":"2026-10-16"},"end":{"date":"2026-10-17"}}]})").object();const auto events=parseGoogleEvents(page,c);QVERIFY(events);QCOMPARE(events->size(),1);QVERIFY(events->first().onDate(QDate(2026,10,16)));QVERIFY(!events->first().onDate(QDate(2026,10,15)));QVERIFY(!events->first().onDate(QDate(2026,10,17)));QCOMPARE(events->first().colour,QString("#ABCDEF"));QCOMPARE(events->first().calendarId,calendarIdentity(c));
         QVERIFY(!parseGoogleEvents(QJsonDocument::fromJson(R"({"items":[{"id":"a","start":{"dateTime":"2026-10-16T10:00:00"},"end":{"dateTime":"2026-10-16T11:00:00"}}]})").object(),c));
+    }
+    void calendarListColoursAreValidated(){
+        GoogleTransport network;network.calendarListBody=R"({"items":[{"id":"one@example.invalid","summary":"Same","backgroundColor":"#a1b2c3"},{"id":"two@example.invalid","summary":"Same"},{"id":"three@example.invalid","summary":"Other","backgroundColor":"not-a-colour"}]})";
+        GoogleCalendar client(nullptr,&network);QList<Calendar> calendars;QSignalSpy found(&client,&GoogleCalendar::calendarsReady);
+        connect(&client,&GoogleCalendar::calendarsReady,this,[&](const QList<Calendar> &items){calendars=items;});client.connectAccount(*GoogleCredentials::parse(credentials()));QTRY_COMPARE(found.count(),1);
+        QCOMPARE(calendars.size(),3);QCOMPARE(calendars[0].colour,QString("#A1B2C3"));QVERIFY(calendars[1].colour.isEmpty());QVERIFY(calendars[2].colour.isEmpty());
+        QCOMPARE(calendars[0].name,calendars[1].name);QVERIFY(calendarIdentity(calendars[0])!=calendarIdentity(calendars[1]));
     }
     void briefingRequiresEveryConnectedSource(){
         const auto time=QDateTime::fromString("2026-10-14T16:00:00Z",Qt::ISODate);Event apple;apple.uid="apple";Event google;google.uid="google";
@@ -61,7 +69,8 @@ private slots:
     void paginationTokenRenewalAndReadOnlyRequests(){
         GoogleTransport network;GoogleCalendar client(nullptr,&network);QSignalSpy found(&client,&GoogleCalendar::calendarsReady),loaded(&client,&GoogleCalendar::eventsReady);const auto bundle=GoogleCredentials::parse(credentials());QVERIFY(bundle);client.connectAccount(*bundle);QTRY_COMPARE(found.count(),1);QList<Calendar> calendars;
         connect(&client,&GoogleCalendar::calendarsReady,this,[&](const QList<Calendar> &v){calendars=v;});client.discover();QTRY_COMPARE(found.count(),2);QCOMPARE(calendars.size(),1);network.expired=true;client.fetch(calendars,QDate(2026,10,1));QTRY_COMPARE(loaded.count(),1);QCOMPARE(network.refreshes,2);QList<Event> result;connect(&client,&GoogleCalendar::eventsReady,this,[&](const QList<Event> &v,QDate){result=v;});client.fetch(calendars,QDate(2026,10,1));QTRY_COMPARE(loaded.count(),2);QCOMPARE(result.size(),2);
-        for(qsizetype i=0;i<network.requests.size();++i){const auto &r=network.requests[i];QCOMPARE(network.operations[i],r.url().host()=="oauth2.googleapis.com"?QNetworkAccessManager::PostOperation:QNetworkAccessManager::GetOperation);if(r.url().path().endsWith("/events")){QUrlQuery query(r.url());QCOMPARE(query.queryItemValue("singleEvents"),QString("true"));QVERIFY(!query.queryItemValue("timeMin").isEmpty());QVERIFY(!query.queryItemValue("timeMax").isEmpty());}QVERIFY(!r.url().hasQuery()||!r.url().query().contains("access_token"));if(r.url().host()=="www.googleapis.com")QCOMPARE(r.rawHeader("Authorization"),QByteArray("Bearer fixture-access"));QVERIFY(r.attribute(QNetworkRequest::RedirectPolicyAttribute).toInt()==QNetworkRequest::ManualRedirectPolicy);}
+        QCOMPARE(calendars.first().colour,QString("#1A73E8"));QCOMPARE(result.first().colour,QString("#1A73E8"));QCOMPARE(result.first().calendarId,calendarIdentity(calendars.first()));
+        for(qsizetype i=0;i<network.requests.size();++i){const auto &r=network.requests[i];QCOMPARE(network.operations[i],r.url().host()=="oauth2.googleapis.com"?QNetworkAccessManager::PostOperation:QNetworkAccessManager::GetOperation);if(r.url().path().endsWith("calendarList")){QUrlQuery query(r.url());QVERIFY(query.queryItemValue("fields").contains("backgroundColor"));}if(r.url().path().endsWith("/events")){QUrlQuery query(r.url());QCOMPARE(query.queryItemValue("singleEvents"),QString("true"));QVERIFY(!query.queryItemValue("timeMin").isEmpty());QVERIFY(!query.queryItemValue("timeMax").isEmpty());}QVERIFY(!r.url().hasQuery()||!r.url().query().contains("access_token"));if(r.url().host()=="www.googleapis.com")QCOMPARE(r.rawHeader("Authorization"),QByteArray("Bearer fixture-access"));QVERIFY(r.attribute(QNetworkRequest::RedirectPolicyAttribute).toInt()==QNetworkRequest::ManualRedirectPolicy);}
     }
     void redirectsCannotForwardBearerTokens(){GoogleTransport network;network.redirect=true;GoogleCalendar client(nullptr,&network);QSignalSpy failed(&client,&GoogleCalendar::failed),found(&client,&GoogleCalendar::calendarsReady);client.connectAccount(*GoogleCredentials::parse(credentials()));QTRY_COMPARE(failed.count(),1);QCOMPARE(network.requests.size(),2);QCOMPARE(found.count(),0);QVERIFY(!failed.first().first().toString().contains("fixture-access"));}
     void revokedRefreshStopsAccess(){GoogleTransport network;network.revoke=true;GoogleCalendar client(nullptr,&network);QSignalSpy rejected(&client,&GoogleCalendar::authorizationRejected),found(&client,&GoogleCalendar::calendarsReady);client.connectAccount(*GoogleCredentials::parse(credentials()));QTRY_COMPARE(rejected.count(),1);client.discover();QTest::qWait(30);QCOMPARE(network.refreshes,1);QCOMPARE(found.count(),0);}

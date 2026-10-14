@@ -11,7 +11,8 @@
 namespace {
 const QByteArray Principal = R"(<d:propfind xmlns:d="DAV:"><d:prop><d:current-user-principal/></d:prop></d:propfind>)";
 const QByteArray Home = R"(<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><c:calendar-home-set/></d:prop></d:propfind>)";
-const QByteArray Collections = R"(<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav"><d:prop><d:displayname/><d:resourcetype/><c:supported-calendar-component-set/></d:prop></d:propfind>)";
+const QByteArray Collections = R"(<d:propfind xmlns:d="DAV:" xmlns:c="urn:ietf:params:xml:ns:caldav" xmlns:a="http://apple.com/ns/ical/"><d:prop><d:displayname/><d:resourcetype/><c:supported-calendar-component-set/><a:calendar-color/></d:prop></d:propfind>)";
+const QString AppleCalendarColour = "http://apple.com/ns/ical/|calendar-color";
 QString discoveredProperty(const QByteArray &data, const QString &name) {
     for (const auto &response : parseDav(data)) {
         const auto value = response.properties.value(name);
@@ -21,6 +22,10 @@ QString discoveredProperty(const QByteArray &data, const QString &name) {
 }
 QString utcBoundary(QDate date) {
     return QDateTime(date,QTime(0,0),configuredZone()).toUTC().toString("yyyyMMdd'T'HHmmss'Z'");
+}
+void applyCalendarMetadata(QList<Event> &events,const Calendar &calendar){
+    const auto id=calendarIdentity(calendar),colour=canonicalCalendarColour(calendar.colour);
+    for(auto &event:events){event.calendar=calendar.name;event.calendarId=id;event.colour=colour;}
 }
 }
 
@@ -108,7 +113,8 @@ void Caldav::connectAccount(const QString &account, const QByteArray &appPasswor
                     if (seen.contains(url)) continue;
                     seen.insert(url);
                     QString name = r.properties.value(davProperty("displayname")).left(100);
-                    calendars << Calendar{url,name.isEmpty() ? QString("Calendar") : name};
+                    calendars << Calendar{url,name.isEmpty() ? QString("Calendar") : name,
+                                          canonicalCalendarColour(r.properties.value(AppleCalendarColour))};
                     if (calendars.size() > 50) throw std::runtime_error("Too many calendars");
                 }
                 emit calendarsReady(calendars);
@@ -148,17 +154,21 @@ void Caldav::reportNext(QList<Calendar> calendars,int index,QDate first,QDate la
         return;
     }
     const auto calendar=calendars[index];
-    const QByteArray probe=R"(<d:propfind xmlns:d="DAV:" xmlns:s="http://calendarserver.org/ns/"><d:prop><d:sync-token/><s:getctag/></d:prop></d:propfind>)";
+    const QByteArray probe=R"(<d:propfind xmlns:d="DAV:" xmlns:s="http://calendarserver.org/ns/" xmlns:a="http://apple.com/ns/ical/"><d:prop><d:sync-token/><s:getctag/><a:calendar-color/></d:prop></d:propfind>)";
     request(calendar.url,"PROPFIND",probe,"0",[=](const QByteArray &data,const QUrl &) mutable {
         QString changeToken;
+        QString colour=calendar.colour;
         if(!data.isEmpty())for(const auto &r:parseDav(data)){
             changeToken=r.properties.value(davProperty("sync-token"));
             if(changeToken.isEmpty())changeToken=r.properties.value("http://calendarserver.org/ns/|getctag");
+            if(r.properties.contains(AppleCalendarColour))colour=canonicalCalendarColour(r.properties.value(AppleCalendarColour));
             if(!changeToken.isEmpty())break;
         }
+        calendars[index].colour=colour;
         const auto key=calendar.url.toString();
         if(!changeToken.isEmpty()&&cache.contains(key)&&cache.value(key).token==changeToken){
-            events.append(cache.value(key).events);reportNext(calendars,index+1,first,last,events,token);
+            auto cached=cache.value(key).events;applyCalendarMetadata(cached,calendars[index]);
+            cache[key].events=cached;events.append(cached);reportNext(calendars,index+1,first,last,events,token);
         }else readCalendar(calendars,index,first,last,events,token,changeToken);
     },0,true);
 }
@@ -171,7 +181,7 @@ void Caldav::readCalendar(QList<Calendar> calendars,int index,QDate first,QDate 
         for (const auto &r : parseDav(data)) {
             const auto ics=r.properties.value(calProperty("calendar-data"));
             if (ics.isEmpty()) throw std::runtime_error("Calendar resource could not be read");
-            const auto parsed=parseExpandedCalendar(ics.toUtf8(),calendar.name);events.append(parsed);calendarEvents.append(parsed);
+            auto parsed=parseExpandedCalendar(ics.toUtf8(),calendar.name);applyCalendarMetadata(parsed,calendar);events.append(parsed);calendarEvents.append(parsed);
             if (events.size()>5000) throw std::runtime_error("Too many events");
         }
         cache[calendar.url.toString()]={changeToken,calendarEvents};
