@@ -53,19 +53,25 @@ void WeatherIcon::setCode(int value){code=validWeatherCode(value)?value:-1;setAc
 void WeatherIcon::paintEvent(QPaintEvent *){
     QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.scale(width()/64.0,height()/64.0);
     const bool dark=palette().color(QPalette::Window).lightness()<128;
-    const QColor muted=dark?QColor("#a3b3b8"):QColor("#64756e"),sun=dark?QColor("#d7b16b"):QColor("#b68137");
+    const QColor muted=dark?QColor("#a3b3b8"):QColor("#64756e");
+    const QColor sun=dark?QColor("#f1bb58"):QColor("#a9670a");
+    const QColor sunFill=dark?QColor("#b67d26"):QColor("#f5c65a");
+    const QColor cloudOutline=dark?QColor("#a8bed0"):QColor("#526f89");
+    const QColor cloudFill=dark?QColor("#344757"):QColor("#dbe5ed");
+    const QColor rain=dark?QColor("#66b8f0"):QColor("#2875af");
+    const QColor snow=dark?QColor("#86d5e5"):QColor("#377b91");
     p.setPen(QPen(muted,1.8,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(Qt::NoBrush);
-    auto sunshine=[&](QPointF center,qreal radius){p.setPen(QPen(sun,1.8,Qt::SolidLine,Qt::RoundCap));p.drawEllipse(center,radius,radius);for(int i=0;i<8;++i){const qreal a=i*3.141592653589793/4;p.drawLine(center+QPointF(std::cos(a)*(radius+5),std::sin(a)*(radius+5)),center+QPointF(std::cos(a)*(radius+11),std::sin(a)*(radius+11)));}};
+    auto sunshine=[&](QPointF center,qreal radius){p.setPen(QPen(sun,2.2,Qt::SolidLine,Qt::RoundCap));p.setBrush(sunFill);p.drawEllipse(center,radius,radius);p.setBrush(Qt::NoBrush);for(int i=0;i<8;++i){const qreal a=i*3.141592653589793/4;p.drawLine(center+QPointF(std::cos(a)*(radius+5),std::sin(a)*(radius+5)),center+QPointF(std::cos(a)*(radius+11),std::sin(a)*(radius+11)));}};
     if(code==0){sunshine({32,32},12);return;}
     if(code==1||code==2)sunshine({24,23},10);
     if(code<0){p.setFont(pixelFont(27));p.drawText(QRectF(0,0,64,64),Qt::AlignCenter,"—");return;}
     const bool precipitation=code>=51;const qreal y=precipitation?0:10;
     QPainterPath cloud;cloud.moveTo(16,36+y);cloud.lineTo(47,36+y);cloud.cubicTo(61,36+y,61,16+y,47,16+y);cloud.cubicTo(45,0+y,24,-1+y,20,14+y);cloud.cubicTo(4,10+y,1,36+y,16,36+y);cloud.closeSubpath();
-    p.setPen(QPen(muted,1.8,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(palette().color(QPalette::Window));p.drawPath(cloud);p.setBrush(Qt::NoBrush);
-    if(code==45||code==48){p.drawLine(11,53,48,53);p.drawLine(18,59,54,59);}
-    else if((code>=71&&code<=77)||code==85||code==86){for(int x:{19,34,49}){p.drawLine(x,42,x,55);p.drawLine(x-5,45,x+5,52);p.drawLine(x-5,52,x+5,45);}}
-    else if(code>=95){QPainterPath bolt;bolt.moveTo(33,40);bolt.lineTo(25,51);bolt.lineTo(34,51);bolt.lineTo(29,61);p.setPen(QPen(sun,2,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.drawPath(bolt);}
-    else if(precipitation){for(int x:{20,34,48})p.drawLine(x,43,x-5,54);}
+    p.setPen(QPen(cloudOutline,2.2,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(cloudFill);p.drawPath(cloud);p.setBrush(Qt::NoBrush);
+    if(code==45||code==48){p.setPen(QPen(muted,2.2,Qt::SolidLine,Qt::RoundCap));p.drawLine(11,53,48,53);p.drawLine(18,59,54,59);}
+    else if((code>=71&&code<=77)||code==85||code==86){p.setPen(QPen(snow,2.2,Qt::SolidLine,Qt::RoundCap));for(int x:{19,34,49}){p.drawLine(x,42,x,55);p.drawLine(x-5,45,x+5,52);p.drawLine(x-5,52,x+5,45);}}
+    else if(code>=95){QPainterPath bolt;bolt.moveTo(33,40);bolt.lineTo(25,51);bolt.lineTo(34,51);bolt.lineTo(29,61);p.setPen(QPen(sun,2.8,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.drawPath(bolt);}
+    else if(precipitation){p.setPen(QPen(rain,2.5,Qt::SolidLine,Qt::RoundCap));for(int x:{20,34,48})p.drawLine(x,43,x-5,54);}
 }
 ForecastStrip::ForecastStrip(QWidget *parent):QWidget(parent){
     auto *row=new QHBoxLayout(this);row->setContentsMargins(0,0,0,0);row->setSpacing(16);
