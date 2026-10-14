@@ -1,4 +1,5 @@
 #include "dashboard-widgets.h"
+#include "calendar-style.h"
 #include "diagnostics.h"
 #include <QImage>
 #include <QJsonArray>
@@ -42,6 +43,29 @@ private slots:
         }
         QCOMPARE(weatherCondition(3),QString("Cloudy"));QCOMPARE(weatherCondition(-1),QString("Unavailable"));
         ForecastStrip forecast;forecast.resize(620,85);forecast.setForecast({{QDate(2026,10,15),61,13,7},{QDate(2026,10,16),3,12,5},{QDate(2026,10,17),0,15,6}});forecast.show();QTest::qWait(10);QCOMPARE(forecast.findChildren<WeatherIcon*>().size(),3);
+    }
+    void weatherColoursRemainVisibleInBothThemesAndSizes(){
+        for(bool dark:{false,true})for(int size:{40,64})for(int code:{0,2,3,45,61,71,95,-1}){
+            WeatherIcon icon(size);QPalette palette;
+            const QColor background=dark?QColor("#171d25"):QColor("#f6f5ef");
+            palette.setColor(QPalette::Window,background);icon.setPalette(palette);icon.setCode(code);
+            QImage image(icon.size(),QImage::Format_ARGB32);image.fill(background);icon.render(&image);
+            int warm=0,cool=0,neutral=0;
+            const int precipitationTop=qRound(size*40.0/64);
+            for(int y=0;y<size;++y)for(int x=0;x<size;++x){
+                const auto pixel=image.pixelColor(x,y);
+                if(calendarContrast(pixel,background)<3.0)continue;
+                const bool warmPixel=pixel.red()>pixel.blue()+35&&pixel.green()>pixel.blue()+20;
+                const bool coolPixel=pixel.blue()>pixel.red()+25;
+                if(warmPixel)++warm;
+                if(coolPixel&&(!(code==61||code==71)||y>=precipitationTop))++cool;
+                if(!warmPixel&&!coolPixel)++neutral;
+            }
+            QCOMPARE(icon.accessibleName(),weatherCondition(code));
+            if(code==0||code==2||code==95)QVERIFY2(warm>=8,"Sun and lightning need visible warm strokes at 3:1 contrast");
+            if(code==2||code==3||code==45||code==61||code==71)QVERIFY2(cool>=8,"Clouds, rain and snow need visible blue strokes at 3:1 contrast");
+            if(code==-1){QCOMPARE(warm,0);QCOMPARE(cool,0);QVERIFY(neutral>=8);}
+        }
     }
     void diagnosticsKeepActiveIssuesWhenHistoryIsTrimmed(){
         Diagnostics diagnostics;diagnostics.fail(DataSource::Calendar,IssueCode::CalendarSignIn);
