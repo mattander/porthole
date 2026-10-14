@@ -70,7 +70,15 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     connect(signIn,&QPushButton::clicked,this,actions.signIn);connect(chooseButton,&QPushButton::clicked,this,actions.changeCalendars);connect(signOutButton,&QPushButton::clicked,this,actions.signOut);
     auto *replace=action("Replace password");cloud->addWidget(replace,0,Qt::AlignLeft);connect(replace,&QPushButton::clicked,this,actions.signIn);
     cloud->addWidget(text("Selected calendars",18));calendarNames=text("",18,true);cloud->addWidget(calendarNames);cloud->addStretch();
-    cloud->addWidget(text("Remembered accounts reconnect after restarting. Stored credentials are encrypted on this SD card. Never enter your primary Apple Account password.",16,true));tabs->addTab(cloudPage,"iCloud");
+    cloud->addWidget(text("Remembered accounts reconnect after restarting. Stored credentials are encrypted on this SD card. Never enter your primary Apple Account password.",16,true));
+    auto *accounts=new QTabWidget;accounts->addTab(cloudPage,"iCloud");
+    auto *googlePage=new QWidget;auto *gl=new QVBoxLayout(googlePage);gl->setContentsMargins(24,24,24,24);gl->setSpacing(20);
+    gl->addWidget(text("Google Workspace & Google Calendar",28));googleStatus=text("Not connected",20);gl->addWidget(googleStatus);
+    gl->addWidget(text("Google calendars appear alongside iCloud in the dashboard and AI briefing. Access is read-only.",18,true));
+    auto *gb=new QHBoxLayout;auto *setup=action("Connect Google");googleChoose=action("Choose Google calendars");googleForget=action("Forget Google");gb->addWidget(setup);gb->addWidget(googleChoose);gb->addWidget(googleForget);gl->addLayout(gb);
+    connect(setup,&QPushButton::clicked,this,[actions]{if(actions.setupGoogle)actions.setupGoogle();});connect(googleChoose,&QPushButton::clicked,this,[actions]{if(actions.chooseGoogle)actions.chooseGoogle();});connect(googleForget,&QPushButton::clicked,this,[actions]{if(actions.forgetGoogle)actions.forgetGoogle();});
+    gl->addWidget(text("Sign in once through your Mac browser using the setup helper. No Google password is entered on the frame. The encrypted refresh token reconnects after restarting.",18,true));gl->addStretch();
+    gl->addWidget(text("Workspace administrators may need to allow your OAuth client. See the Google setup guide in the project README.",16,true));accounts->addTab(googlePage,"Google");tabs->addTab(accounts,"Calendars");updateGoogle({});
 
     auto *displayPage=new QWidget;auto *display=new QVBoxLayout(displayPage);display->setContentsMargins(24,24,24,24);display->setSpacing(20);
     display->addWidget(text("Appearance",28));display->addWidget(text("Choose the look of your wall display. Your choice is saved on this SD card.",18,true));
@@ -204,3 +212,5 @@ void SettingsPane::updateSoftware(const std::optional<SoftwareUpdate> &state){
     const auto failure=updateFailureText(state->failure);if(!failure.isEmpty())value+="\n"+failure;
     softwareStatus->setText(value);
 }
+
+void SettingsPane::updateGoogle(const QJsonObject &state){googleStatus->setText(state["status"].toString("Connect Google using the Mac setup helper"));googleChoose->setEnabled(state["authenticated"].toBool()&&!state["available"].toArray().isEmpty());googleForget->setEnabled(state["authenticated"].toBool()||!state["issue"].toString().isEmpty());}

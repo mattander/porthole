@@ -1,5 +1,5 @@
 [Unit]
-Description=Porthole read-only iCloud calendar service
+Description=Porthole read-only calendar service
 Requires=porthole-credentials.service
 After=porthole-credentials.service systemd-resolved.service
 [Service]
@@ -12,6 +12,8 @@ StateDirectory=porthole-calendar
 StateDirectoryMode=0700
 LoadCredentialEncrypted=porthole-icloud
 SetCredential=porthole-icloud:{}
+LoadCredentialEncrypted=porthole-google
+SetCredential=porthole-google:{}
 LoadCredentialEncrypted=porthole-openai
 SetCredential=porthole-openai:{}
 ExecStart=/usr/local/bin/porthole-calendar

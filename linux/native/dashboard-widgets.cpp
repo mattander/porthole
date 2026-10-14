@@ -90,4 +90,4 @@ DashboardFooter::DashboardFooter(QWidget *parent):QWidget(parent){
     gear=new GearButton;row->addWidget(gear);connect(gear,&QPushButton::clicked,this,&DashboardFooter::settingsRequested);root->addLayout(row);setView(0);setUpdateTimes({},{},{});
 }
 void DashboardFooter::setView(int view){for(int i=0;i<3;++i)tabs[i]->setChecked(i==view);}
-void DashboardFooter::setUpdateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){updated->setText(QString("%1Last updated: iCloud %2 · weather %3%4 · summary %5").arg(sample?"Sample · ":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));}
+void DashboardFooter::setUpdateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){updated->setText(QString("%1Last updated: calendars %2 · weather %3%4 · summary %5").arg(sample?"Sample · ":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));}

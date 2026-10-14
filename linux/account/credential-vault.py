@@ -5,6 +5,7 @@ from pathlib import Path
 from urllib.parse import urlsplit
 SOCKET=Path('/run/porthole-credentials/socket')
 TARGET=Path('/etc/credstore.encrypted/porthole-icloud')
+GOOGLE_TARGET=Path('/etc/credstore.encrypted/porthole-google')
 OPENAI_TARGET=Path('/etc/credstore.encrypted/porthole-openai')
 
 def valid_bundle(value):
@@ -58,6 +59,8 @@ def main():
             command=json.loads(data.split(b'\n',1)[0]);kind=command.get('type');reply={'ok':True}
             if kind=='status':reply['remembered']=TARGET.is_file()
             elif kind=='save':write_bundle(command.get('bundle'))
+            elif kind=='forgetGoogle':
+                GOOGLE_TARGET.unlink(missing_ok=True);restart=True
             elif kind=='forgetOpenai':
                 OPENAI_TARGET.unlink(missing_ok=True);restart=True
             elif kind in ('forget','clear'):

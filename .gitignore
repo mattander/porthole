@@ -37,3 +37,8 @@ Testing/
 *.tar.xz
 *.log
 *.jsonl
+
+# Downloaded Google OAuth clients and token exports are private
+**/client_secret*.json
+**/google-client*.json
+**/google-token*.json

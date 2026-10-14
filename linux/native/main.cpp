@@ -1,5 +1,6 @@
 #include "profile.h"
 #include "calendar-client.h"
+#include "google-calendar.h"
 #include "update-client.h"
 #include "keyboard.h"
 #include "settings.h"
@@ -201,25 +202,29 @@ private:
         QJsonArray sources;
         sources.append(QJsonObject{{"name","Wi-Fi"},{"status",demo?"Sample":wifi.connected()?"Connected":"Offline"},{"checked",demo?"Sample":"Current state"}});
         sources.append(QJsonObject{{"name","iCloud"},{"status",demo?"Sample":!caldav.hasAccount()?"Not connected":diagnostics.hasActive(DataSource::Calendar)?"Needs attention":lastCalendar.isValid()?"Last calendar available":"Connecting"},{"checked",time(lastCalendar)}});
+        const auto g=caldav.googleState();sources.append(QJsonObject{{"name","Google"},{"status",demo?"Sample":!g["issue"].toString().isEmpty()?"Needs attention":g["authenticated"].toBool()?"Connected":"Not connected"},{"checked",g["lastChecked"].toString()}});
         sources.append(QJsonObject{{"name","Weather"},{"status",demo?"Sample":weatherStale?"Stale · retry pending":lastWeather.isValid()?"Up to date":"Waiting"},{"checked",time(lastWeather)}});
         sources.append(QJsonObject{{"name","AI briefing"},{"status",demo?"Sample":!latestBriefing["enabled"].toBool()?"Off":diagnostics.hasActive(DataSource::Summary)?"Needs attention":lastSummary.isValid()?"Last result available":"Waiting"},{"checked",time(lastSummary)}});
         value["sources"]=sources;return value;
     }
     void syncSettings() {
         if(!settings)return;
-        QStringList names;for(const auto &calendar:selected)names<<calendar.name;
-        settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
+        QStringList names;for(const auto &calendar:selected)if(!isGoogleCalendarUrl(calendar.url))names<<calendar.name;
+        settings->updateGoogle(caldav.googleState());settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
         settings->updateDiagnostics(diagnosticState());
         settings->updateSoftware(updates.state());
-        settings->updateState(calendarStatus,weatherStatus,names,darkTheme,demo,caldav.hasAccount(),!caldav.availableCalendars().isEmpty());
+        settings->updateState(demo?calendarStatus:caldav.icloudStatus(),weatherStatus,names,darkTheme,demo,caldav.hasAccount(),!caldav.availableCalendars().isEmpty());
     }
     void showSettings() {
         if(settings){settings->raise();return;}
         SettingsActions actions;actions.profile=[this](QJsonObject value){caldav.saveProfile(value);};
         actions.checkUpdates=[this]{updates.check();};actions.automaticUpdates=[this](bool enabled){updates.automatic(enabled);};
         actions.signIn=[this]{signIn();};
-        actions.signOut=[this]{if(QMessageBox::question(settings?static_cast<QWidget*>(settings.data()):this,"Forget iCloud account","Remove the saved sign-in and calendar selection from this frame? Wi-Fi remains saved.")==QMessageBox::Yes){caldav.forgetAccount();selected.clear();events.clear();calendarStatus="Forgetting iCloud account…";renderAgenda();markDates();}};
+        actions.signOut=[this]{if(QMessageBox::question(settings?static_cast<QWidget*>(settings.data()):this,"Forget iCloud account","Remove the saved sign-in and calendar selection from this frame? Wi-Fi remains saved.")==QMessageBox::Yes){caldav.forgetAccount();calendarStatus="Forgetting iCloud account…";renderAgenda();markDates();}};
         actions.changeCalendars=[this]{chooseCalendars(caldav.availableCalendars());};
+        actions.chooseGoogle=[this]{chooseCalendars(caldav.googleCalendars(),true);};
+        actions.setupGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();QMessageBox::information(parent,"Connect Google","Create a Desktop OAuth client with Calendar API enabled, then run linux/google/connect-google.py on your Mac with the downloaded client JSON. Connect the frame over USB for this one-time setup. See linux/google/README.md for the steps.\n\nGoogle sign-in opens in your Mac browser. This frame never asks for your Google password.");};
+        actions.forgetGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();if(QMessageBox::question(parent,"Forget Google","Remove Google's saved sign-in from this frame? iCloud remains connected. You can also revoke Porthole in your Google Account permissions.")==QMessageBox::Yes)caldav.forgetGoogleAccount();};
         actions.useLive=[this]{useLiveData();};actions.refresh=[this]{useLiveData();};actions.useSample=[this]{sampleData();};
         actions.theme=[this](bool dark){applyTheme(dark);const auto path=preferencesPath();QDir().mkpath(QFileInfo(path).absolutePath());QSettings preferences(path,QSettings::IniFormat);preferences.setValue("display/darkMode",dark);preferences.sync();syncSettings();};
         actions.briefing=[this](bool enabled,QString priorities,int cents){caldav.briefingSettings(enabled,priorities,cents);};
@@ -306,7 +311,7 @@ private:
         caption->setText(QString::number(count)+(count==1?" event":" events")+(view==0?" today":view==1?" tomorrow":" on this day"));
         if(!demo&&selected.isEmpty())caption->setText("Your plans, together");
         if(count==0){
-            eventLayout->addWidget(label(selected.isEmpty()&&!demo?"Connect iCloud in Settings to see your family’s plans.":"Nothing scheduled for this day.",26));
+            eventLayout->addWidget(label(selected.isEmpty()&&!demo?"Connect a calendar in Settings to see your family’s plans.":"Nothing scheduled for this day.",26));
         }
         eventLayout->addStretch();renderStatus();
     }
@@ -337,7 +342,7 @@ private:
         temperature->setText("—");weather->setText("Loading weather…");forecast->clear();
         caldav.connectAccount(account,password,dialog.remember->isChecked());password.fill('\0');renderAgenda();
     }
-    void chooseCalendars(const QList<Calendar> &calendars) {
+    void chooseCalendars(const QList<Calendar> &calendars,bool google=false) {
         if(calendars.isEmpty()){calendarStatus="No readable event calendars were found.";renderAgenda();return;}
         QDialog dialog(settings?static_cast<QWidget*>(settings.data()):this);dialog.setWindowTitle("Choose calendars");dialog.resize(this->size());
         auto *layout=new QVBoxLayout(&dialog);layout->addWidget(label("Which calendars should appear?",28));
@@ -347,9 +352,9 @@ private:
         layout->addWidget(list,1);auto *actions=new QDialogButtonBox(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);layout->addWidget(actions);
         connect(actions,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(actions,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
         if(dialog.exec()!=QDialog::Accepted){calendarStatus="Calendar selection unchanged";renderAgenda();return;}
-        selected.clear();for(int i=0;i<list->count();++i)if(list->item(i)->checkState()==Qt::Checked)selected<<calendars[i];
-        if(selected.isEmpty()||selected.size()>16){selected.clear();calendarStatus="Choose between 1 and 16 calendars to connect.";renderAgenda();return;}
-        caldav.selectCalendars(selected);refreshData();
+        QList<Calendar> chosen;for(int i=0;i<list->count();++i)if(list->item(i)->checkState()==Qt::Checked)chosen<<calendars[i];
+        if(chosen.isEmpty()||chosen.size()>16){calendarStatus="Choose between 1 and 16 calendars to connect.";renderAgenda();return;}
+        if(google)caldav.selectGoogleCalendars(chosen);else caldav.selectCalendars(chosen);refreshData();
     }
     void refreshData() {
         if(demo)return;
@@ -417,6 +422,7 @@ int main(int argc,char **argv) {
             QTimer::singleShot(500,&app,[name]{if(auto *window=QApplication::activeModalWidget())if(auto *tabs=window->findChild<QTabWidget*>())for(int i=0;i<tabs->count();++i)if(QString(tabs->tabText(i)).replace("&&","&")==name)tabs->setCurrentIndex(i);});
         }
     }
+    if(app.arguments().contains("--demo")&&app.arguments().contains("--preview-google"))QTimer::singleShot(700,&app,[]{if(auto *window=QApplication::activeModalWidget())for(auto *tabs:window->findChildren<QTabWidget*>())for(int i=0;i<tabs->count();++i)if(tabs->tabText(i)=="Google")tabs->setCurrentIndex(i);});
     const auto capture=app.arguments().indexOf("--capture");
     if(app.arguments().contains("--demo")&&capture>=0&&capture+1<app.arguments().size()){
         const auto path=app.arguments()[capture+1];

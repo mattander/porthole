@@ -3,13 +3,13 @@
 #include <QJsonArray>
 #include <QRegularExpression>
 
-QString sourceName(DataSource source){switch(source){case DataSource::Wifi:return "Wi-Fi";case DataSource::Calendar:return "iCloud";case DataSource::Weather:return "Weather";case DataSource::Summary:return "AI briefing";}return {};}
+QString sourceName(DataSource source){switch(source){case DataSource::Wifi:return "Wi-Fi";case DataSource::Calendar:return "Calendars";case DataSource::Weather:return "Weather";case DataSource::Summary:return "AI briefing";}return {};}
 QString issueMessage(IssueCode code){switch(code){
 case IssueCode::ConnectionLost:return "Wi-Fi connection was lost";
 case IssueCode::WifiConnection:return "Wi-Fi connection failed";
 case IssueCode::WifiScan:return "Wi-Fi scan failed";
 case IssueCode::CalendarUnavailable:return "Calendar refresh failed";
-case IssueCode::CalendarSignIn:return "iCloud sign-in needs attention";
+case IssueCode::CalendarSignIn:return "Calendar sign-in needs attention";
 case IssueCode::WeatherUnavailable:return "Weather refresh failed";
 case IssueCode::InvalidForecast:return "Weather response could not be used";
 case IssueCode::SummaryUnavailable:return "AI briefing update failed";
@@ -20,7 +20,7 @@ QString issueAction(IssueCode code){switch(code){
 case IssueCode::ConnectionLost:return "Choose or reconnect your network in Wi-Fi. Saved data remains available.";
 case IssueCode::WifiConnection:return "Check the network password, then try again.";
 case IssueCode::WifiScan:return "Try Refresh networks in Wi-Fi.";
-case IssueCode::CalendarSignIn:return "Replace the dedicated app-specific password in iCloud.";
+case IssueCode::CalendarSignIn:return "Check the affected account in Calendars. Replace the iCloud app-specific password or reconnect Google.";
 case IssueCode::CalendarUnavailable:return "Check Wi-Fi and the frame’s clock. Calendar checks retry every minute.";
 case IssueCode::WeatherUnavailable:case IssueCode::InvalidForecast:return "Kept the last forecast. Weather retries every 15 minutes.";
 case IssueCode::SummaryKey:return "Replace the OpenAI key from your Mac over USB.";
@@ -46,12 +46,12 @@ QJsonObject deviceHealth(){
     return value;
 }
 QJsonObject safeDiagnostics(const QJsonObject &state){
-    const QStringList names{"Wi-Fi","iCloud","Weather","AI briefing"};
+    const QStringList names{"Wi-Fi","iCloud","Google","Calendars","Weather","AI briefing"};
     const QStringList statuses{"Sample","Connected","Offline","Current state","Connecting","Not connected","Needs attention","Last calendar available","Last result available","Waiting","Off","Up to date","Stale · retry pending"};
     auto date=[](QString text){const auto parsed=QDateTime::fromString(text,Qt::ISODate);return parsed.isValid()?parsed.toString(Qt::ISODate):QString();};
     QJsonArray sources,issues;QJsonObject health;
     for(const auto &value:state["sources"].toArray()){
-        const auto item=value.toObject();const auto name=item["name"].toString();if(!names.contains(name)||sources.size()>=4)continue;
+        const auto item=value.toObject();const auto name=item["name"].toString();if(!names.contains(name)||sources.size()>=5)continue;
         auto checked=item["checked"].toString();if(checked!="Current state"&&checked!="Sample")checked=date(checked);if(checked.isEmpty())checked="—";
         const auto status=item["status"].toString();sources.append(QJsonObject{{"name",name},{"status",statuses.contains(status)?status:QString("Unavailable")},{"checked",checked}});
     }

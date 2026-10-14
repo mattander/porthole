@@ -98,7 +98,7 @@ before using it; the source checkout alone is not its required installation bund
    frame. iwd remembers the connection on the SD card. Confirm that the clock is
    correct before signing in.
 3. Create a dedicated [Apple app-specific password](https://support.apple.com/en-ca/102654).
-   In **Settings → iCloud**, enter your Apple Account email and that password,
+   In **Settings → Calendars → iCloud**, enter your Apple Account email and that password,
    leave **Remember this account** selected if desired, and choose the calendars
    to display. Use **Show password** to check typing. The app reads events and
    does not create or edit them.
@@ -199,3 +199,14 @@ but does not isolate the frame from other devices on the same LAN. See
 ## License
 
 [MIT](LICENSE).
+
+## Google Workspace calendars
+
+Google Calendar can appear alongside iCloud in the native dashboard and AI briefing.
+Create a private Desktop OAuth client, sign in once through your Mac browser, and
+choose calendars in Settings → Calendars → Google. The frame remembers its encrypted
+refresh credential and then checks directly over Wi-Fi. See the complete
+[Google setup guide](linux/google/README.md), including Workspace administrator
+permissions and the seven-day limit for external apps left in Testing.
+An [agent activation guide](linux/google/AGENT-SETUP.md) covers the later
+credential bootstrap, sign-in, deployment, and privacy-safe verification.

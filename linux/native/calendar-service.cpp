@@ -1,5 +1,8 @@
 #include "profile.h"
 #include "caldav.h"
+#include "google-calendar.h"
+#include "calendar-sources.h"
+#include <QSaveFile>
 #include "briefing.h"
 #include <QCoreApplication>
 #include <QTextStream>
@@ -28,7 +31,10 @@ QByteArray readApiKey(){QFile f(qEnvironmentVariable("CREDENTIALS_DIRECTORY")+"/
 QDate today(){return QDateTime::currentDateTimeUtc().toTimeZone(configuredZone()).date();}
 }
 class CalendarService:public QObject {
-    Caldav caldav{this},briefingCalendar{this};QLocalServer server{this};
+    Caldav caldav{this},briefingCalendar{this};GoogleCalendar google{this},googleUpcoming{this};
+    QList<Calendar> googleAvailable,googleSelected;QList<Event> googleEvents,appleUpcomingEvents,googleUpcomingEvents;
+    QDateTime googleChecked,appleUpcomingChecked,googleUpcomingChecked,upcomingEpoch;QString googleStatus="Connect Google using the Mac setup helper",googleIssue;
+    std::optional<GoogleCredentials> googleCredentials;bool googleAuthenticated=false;QLocalServer server{this};
     BriefingEngine briefing{"/var/lib/porthole-calendar/briefing.json",readApiKey(),this};
     bool briefingConnecting=false,briefingReady=false,briefingBlocked=false;
     QString briefingStorageError;
@@ -60,15 +66,16 @@ public:
             refreshUpcoming();
         });
         connect(&briefingCalendar,&Caldav::eventsReady,this,[this](const QList<Event> &items,QDate loaded){
-            if(loaded==QDate(today().year(),today().month(),1))briefing.calendarData(items,QDateTime::currentDateTimeUtc());
+            if(loaded==QDate(today().year(),today().month(),1)){appleUpcomingEvents=items;appleUpcomingChecked=QDateTime::currentDateTimeUtc();publishUpcoming();}
         });
-        connect(&briefingCalendar,&Caldav::failed,this,[this](const QString &){briefingConnecting=false;briefingReady=false;briefing.calendarUnavailable();});
+        connect(&briefingCalendar,&Caldav::failed,this,[this](const QString &){briefingConnecting=false;briefingReady=false;appleUpcomingChecked={};upcomingEpoch={};briefing.calendarUnavailable();});
         connect(&briefingCalendar,&Caldav::authorizationRejected,this,[this]{briefingBlocked=true;briefing.calendarUnavailable(true);});
         server.setSocketOptions(QLocalServer::UserAccessOption|QLocalServer::GroupAccessOption);
         connect(&server,&QLocalServer::newConnection,this,[this]{while(server.hasPendingConnections())accept(server.nextPendingConnection());});
         QLocalServer::removeServer("/run/porthole-calendar/socket");
         if(!server.listen("/run/porthole-calendar/socket"))QTimer::singleShot(0,qApp,[]{QCoreApplication::exit(1);});
-        auto *poll=new QTimer(this);connect(poll,&QTimer::timeout,this,[this]{if(authenticated){fetch();refreshUpcoming();}else reconnect();});poll->start(60000);
+        setupGoogle();
+        auto *poll=new QTimer(this);connect(poll,&QTimer::timeout,this,[this]{if(authenticated)fetch();else reconnect();if(googleCredentials){if(googleAuthenticated)fetchGoogle();else google.discover();}refreshUpcoming();});poll->start(60000);
         QFile credential(qEnvironmentVariable("CREDENTIALS_DIRECTORY")+"/porthole-icloud");
         if(credential.open(QIODevice::ReadOnly)&&credential.size()<=16384){
             auto data=credential.readAll();const auto value=QJsonDocument::fromJson(data).object();data.fill('\0');
@@ -87,19 +94,58 @@ public:
         });
     }
 private:
-    void resetUpcoming(bool forget){briefingCalendar.disconnectAccount();briefingReady=briefingConnecting=briefingBlocked=false;briefing.calendarUnavailable(forget);}
+    void publishUpcoming(){
+        CalendarSource apple=CalendarNotConfigured{},g=CalendarNotConfigured{};
+        if(!account.isEmpty()||remembered){apple=CalendarUnavailable{};if(!selected.isEmpty()&&appleUpcomingChecked.isValid())apple=CheckedCalendarData{appleUpcomingEvents,appleUpcomingChecked};}
+        if(googleCredentials||!googleSelected.isEmpty()){g=CalendarUnavailable{};if(!googleSelected.isEmpty()&&googleUpcomingChecked.isValid())g=CheckedCalendarData{googleUpcomingEvents,googleUpcomingChecked};}
+        if(const auto merged=combineCalendarSources(apple,g,upcomingEpoch)){upcomingEpoch={};briefing.calendarData(merged->events,merged->checked);}
+    }
+    void resetUpcoming(bool forget){upcomingEpoch={};appleUpcomingEvents.clear();appleUpcomingChecked={};briefingCalendar.disconnectAccount();briefingReady=briefingConnecting=briefingBlocked=false;briefing.calendarUnavailable(forget);}
     void refreshUpcoming(){
         const auto state=briefing.snapshot();
-        if(!state["enabled"].toBool()||!state["hasKey"].toBool()||!authenticated||selected.isEmpty()||briefingBlocked)return;
+        if(!state["enabled"].toBool()||!state["hasKey"].toBool())return;
+        if(!upcomingEpoch.isValid())upcomingEpoch=QDateTime::currentDateTimeUtc();
+        if(googleAuthenticated&&!googleSelected.isEmpty())googleUpcoming.fetch(googleSelected,QDate(today().year(),today().month(),1));
+        if(!authenticated||selected.isEmpty()||briefingBlocked){publishUpcoming();return;}
         if(!briefingReady){if(!briefingConnecting){briefingConnecting=true;briefingCalendar.connectAccount(account,password);}return;}
         briefingCalendar.fetch(selected,QDate(today().year(),today().month(),1));
     }
+    void setupGoogle(){
+        connect(&google,&GoogleCalendar::calendarsReady,this,[this](const QList<Calendar> &items){
+            googleAvailable=items;googleAuthenticated=true;googleIssue.clear();
+            QFile file("/var/lib/porthole-calendar/google-selection.json");QStringList urls;
+            if(file.open(QIODevice::ReadOnly)&&file.size()<=32768)for(const auto &v:QJsonDocument::fromJson(file.readAll()).array())if(v.isString())urls<<v.toString();
+            googleSelected.clear();for(const auto &c:items)if(urls.contains(c.url.toString())&&googleSelected.size()<16)googleSelected<<c;
+            if(urls.isEmpty()&&!items.isEmpty()){googleSelected<<items.first();if(!saveGoogleSelection()){googleStatus="Google calendar selection could not be saved";googleIssue="storage";googleSelected.clear();return;}}
+            googleStatus=googleSelected.isEmpty()?"Choose your Google calendars":"Google connected";fetchGoogle();refreshUpcoming();
+        });
+        connect(&google,&GoogleCalendar::eventsReady,this,[this](const QList<Event> &items,QDate loaded){if(loaded!=month)return;googleEvents=items;++eventsRevision;googleChecked=QDateTime::currentDateTimeUtc();googleIssue.clear();googleStatus="Google · checked "+googleChecked.toTimeZone(configuredZone()).toString("h:mm AP");});
+        connect(&google,&GoogleCalendar::failed,this,[this](const QString &message){googleStatus=message;if(googleIssue!="sign-in")googleIssue="refresh";googleUpcomingChecked={};upcomingEpoch={};briefing.calendarUnavailable();});
+        connect(&google,&GoogleCalendar::authorizationRejected,this,[this]{googleAuthenticated=false;googleCredentials.reset();googleIssue="sign-in";googleUpcoming.disconnectAccount();googleUpcomingChecked={};briefing.calendarUnavailable(true);});
+        connect(&googleUpcoming,&GoogleCalendar::calendarsReady,this,[this](const QList<Calendar> &){refreshUpcoming();});
+        connect(&googleUpcoming,&GoogleCalendar::eventsReady,this,[this](const QList<Event> &items,QDate loaded){if(loaded==QDate(today().year(),today().month(),1)){googleUpcomingEvents=items;googleUpcomingChecked=QDateTime::currentDateTimeUtc();publishUpcoming();}});
+        connect(&googleUpcoming,&GoogleCalendar::failed,this,[this](const QString &){googleUpcomingChecked={};upcomingEpoch={};briefing.calendarUnavailable();});
+        connect(&googleUpcoming,&GoogleCalendar::authorizationRejected,this,[this]{google.disconnectAccount();googleCredentials.reset();googleAuthenticated=false;googleIssue="sign-in";googleStatus="Reconnect Google using the Mac helper";googleUpcomingChecked={};briefing.calendarUnavailable(true);});
+        QFile file(qEnvironmentVariable("CREDENTIALS_DIRECTORY")+"/porthole-google");
+        if(file.open(QIODevice::ReadOnly)&&file.size()<=8192){auto bytes=file.readAll();googleCredentials=GoogleCredentials::parse(QJsonDocument::fromJson(bytes).object());bytes.fill('\0');}
+        if(googleCredentials){googleStatus="Connecting Google…";google.connectAccount(*googleCredentials);googleUpcoming.connectAccount(*googleCredentials);}
+    }
+    bool saveGoogleSelection(){QSaveFile file("/var/lib/porthole-calendar/google-selection.json");if(!file.open(QIODevice::WriteOnly))return false;file.setPermissions(QFileDevice::ReadOwner|QFileDevice::WriteOwner);QJsonArray urls;for(const auto &c:googleSelected)urls.append(c.url.toString());const auto data=QJsonDocument(urls).toJson(QJsonDocument::Compact);return file.write(data)==data.size()&&file.commit();}
+    void fetchGoogle(){if(googleAuthenticated&&!googleSelected.isEmpty())google.fetch(googleSelected,month);}
     void reconnect(){if(account.isEmpty()||blocked||connecting)return;connecting=true;status="Connecting iCloud…";caldav.connectAccount(account,password);}
     void fetch(){if(authenticated&&!selected.isEmpty())caldav.fetch(selected,month);}
     QJsonObject snapshot(qint64 since){
         auto ai=briefing.snapshot();if(!briefingStorageError.isEmpty())ai["status"]=briefingStorageError;
         QJsonObject value{{"ok",true},{"profile",householdProfile().json()},{"instance",instance},{"status",status},{"lastChecked",lastChecked.toString(Qt::ISODate)},{"calendarIssue",calendarIssue},{"authenticated",authenticated},{"remembered",remembered},{"account",account},{"available",jsonCalendars(available)},{"selected",jsonCalendars(selected)},{"needsSelection",needsSelection},{"selectionRevision",selectionRevision},{"eventsRevision",eventsRevision},{"month",month.toString(Qt::ISODate)},{"briefing",ai}};
-        if(since!=eventsRevision){QJsonArray data;for(const auto &e:events)data.append(QJsonObject{{"uid",e.uid.left(240)},{"title",e.title},{"location",e.location},{"calendar",e.calendar},{"start",e.start.toString(Qt::ISODate)},{"end",e.end.toString(Qt::ISODate)},{"allDay",e.allDay}});value["events"]=data;}
+        value["google"]=QJsonObject{{"authenticated",googleAuthenticated},{"status",googleStatus},{"issue",googleIssue},{"lastChecked",googleChecked.toString(Qt::ISODate)},{"available",jsonCalendars(googleAvailable)},{"selected",jsonCalendars(googleSelected)}};
+        const bool hasApple=!selected.isEmpty(),hasGoogle=!googleSelected.isEmpty();
+        value["authenticated"]=authenticated||googleAuthenticated;
+        value["calendarIssue"]=!calendarIssue.isEmpty()?calendarIssue:googleIssue;
+        value["lastChecked"]=(hasApple&&hasGoogle?std::min(lastChecked,googleChecked):hasGoogle?googleChecked:lastChecked).toString(Qt::ISODate);
+        value["status"]=hasGoogle?(hasApple?status+" · ":QString())+googleStatus:status;
+        value["selected"]=jsonCalendars(selected+googleSelected);
+        value["icloudAuthenticated"]=authenticated;value["icloudStatus"]=status;
+        if(since!=eventsRevision){QJsonArray data;for(const auto &e:mergeCalendarEvents(events,googleEvents))data.append(QJsonObject{{"uid",e.uid.left(240)},{"title",e.title},{"location",e.location},{"calendar",e.calendar},{"start",e.start.toString(Qt::ISODate)},{"end",e.end.toString(Qt::ISODate)},{"allDay",e.allDay}});value["events"]=data;}
         return value;
     }
     void vault(QJsonObject command,std::function<void(bool)> done,std::function<void(QJsonObject)> details={}){
@@ -134,9 +180,16 @@ private:
                     QJsonObject command=remember?QJsonObject{{"type","save"},{"bundle",QJsonObject{{"account",account},{"password",QString::fromLatin1(password)},{"calendars",jsonCalendars(selected)}}}}:QJsonObject{{"type","clear"}};
                     vault(command,[this](bool ok){storing=false;remembered=ok&&remember;status=ok?remember?"Account saved · reconnects automatically":"Connected for this device session":"Connected · account could not be saved";fetch();refreshUpcoming();});
                 }
+            }else if(kind=="googleSelect"){
+                QList<Calendar> chosen;for(const auto &v:request["urls"].toArray())for(const auto &c:googleAvailable)if(v.toString()==c.url.toString()&&!std::any_of(chosen.begin(),chosen.end(),[&](const Calendar &a){return a.url==c.url;}))chosen<<c;
+                if(!googleAuthenticated||chosen.isEmpty()||chosen.size()>16)reply={{"error","Choose between 1 and 16 Google calendars."}};
+                else {const auto old=googleSelected;googleSelected=chosen;if(!saveGoogleSelection()){googleSelected=old;reply={{"error","Google calendar selection could not be saved."}};}else {google.cancelFetch();googleUpcoming.cancelFetch();upcomingEpoch={};googleEvents.clear();googleUpcomingEvents.clear();googleUpcomingChecked={};++eventsRevision;briefing.calendarUnavailable(true);fetchGoogle();refreshUpcoming();}}
+            }else if(kind=="googleForget"){
+                google.disconnectAccount();googleUpcoming.disconnectAccount();googleCredentials.reset();googleAuthenticated=false;googleAvailable.clear();googleSelected.clear();googleEvents.clear();googleUpcomingEvents.clear();googleUpcomingChecked={};googleChecked={};googleIssue.clear();++eventsRevision;briefing.calendarUnavailable(true);QFile::remove("/var/lib/porthole-calendar/google-selection.json");
+                vault({{"type","forgetGoogle"}},[this](bool ok){googleStatus=ok?"Google account forgotten":"Google storage could not be removed. Try Forget again.";});
             }else if(kind=="fetch"){
                 const auto next=QDate::fromString(request["month"].toString(),Qt::ISODate);
-                if(next.isValid()&&next.year()>=2000&&next.year()<=2099){if(month!=next){month=QDate(next.year(),next.month(),1);events.clear();++eventsRevision;}if(authenticated){fetch();refreshUpcoming();}else reconnect();}
+                if(next.isValid()&&next.year()>=2000&&next.year()<=2099){if(month!=next){month=QDate(next.year(),next.month(),1);google.cancelFetch();events.clear();googleEvents.clear();++eventsRevision;}if(authenticated)fetch();else reconnect();if(googleCredentials){if(googleAuthenticated)fetchGoogle();else google.discover();}refreshUpcoming();}
                 else reply={{"error","Invalid calendar month."}};
             }else if(kind=="forget"){
                 resetUpcoming(true);lastChecked={};calendarIssue.clear();caldav.disconnectAccount();account.clear();password.fill('\0');password.clear();selected.clear();available.clear();events.clear();restoreUrls.clear();remembered=authenticated=needsSelection=connecting=false;blocked=true;++eventsRevision;status="Forgetting account…";
@@ -147,9 +200,10 @@ private:
                 else if(const auto *profile=std::get_if<HouseholdProfile>(&parsed)){
                     if(!saveProfile("/var/lib/porthole-calendar/profile.json",*profile))reply={{"type","profile"},{"error","Private settings could not be saved. Previous settings remain active."}};
                     else if(!(householdProfile()==*profile)){
-                        const bool zoneChanged=profile->zone()!=configuredZone();setHouseholdProfile(*profile);resetUpcoming(false);briefing.profileChanged();
+                        const bool zoneChanged=profile->zone()!=configuredZone();setHouseholdProfile(*profile);resetUpcoming(false);briefing.profileChanged();google.cancelFetch();googleUpcoming.cancelFetch();googleUpcomingChecked={};googleUpcomingEvents.clear();googleEvents.clear();++eventsRevision;
                         if(zoneChanged){caldav.disconnectAccount();restoreUrls.clear();for(const auto &c:selected)restoreUrls<<c.url.toString();selected.clear();events.clear();++eventsRevision;month=QDate(today().year(),today().month(),1);authenticated=connecting=false;reconnect();}
                         else refreshUpcoming();
+                        fetchGoogle();refreshUpcoming();
                     }
                 }
             }else if(kind=="briefingWeather"){

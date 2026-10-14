@@ -19,16 +19,19 @@ struct SettingsActions {
     std::function<void(QJsonObject)> profile;
     std::function<void()> checkUpdates;
     std::function<void(bool)> automaticUpdates;
+    std::function<void()> setupGoogle,forgetGoogle,chooseGoogle;
 };
 class SettingsPane : public QDialog {
 public:
     SettingsPane(WifiController *wifi,const SettingsActions &actions,QWidget *parent);
     void updateState(const QString &calendar,const QString &weather,const QStringList &calendars,bool dark,bool demo,bool hasAccount=false,bool canChoose=false);
+    void updateGoogle(const QJsonObject &state);
     void updateProfile(const QJsonObject &profile);
     void updateBriefing(const QJsonObject &state);
     void updateDiagnostics(const QJsonObject &state);
     void updateSoftware(const std::optional<SoftwareUpdate> &state);
 private:
+    QLabel *googleStatus;QPushButton *googleChoose,*googleForget;
     QLabel *calendarStatus,*weatherStatus,*calendarNames,*modeStatus;
     QPushButton *lightButton,*darkButton,*signOutButton,*chooseButton;
     QLabel *briefingStatus,*briefingSpending;

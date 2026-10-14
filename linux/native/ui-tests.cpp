@@ -45,6 +45,13 @@ private slots:
         QTest::mouseClick(named(pane,"View sample data"),Qt::LeftButton);QCOMPARE(sample,1);
         QTest::mouseClick(named(pane,"Refresh live data"),Qt::LeftButton);QCOMPARE(refresh,1);
     }
+    void googleControlsAreIndependentAndFitBothOrientations(){
+        QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int setup=0,choose=0,forget=0;SettingsActions actions;actions.setupGoogle=[&]{++setup;};actions.chooseGoogle=[&]{++choose;};actions.forgetGoogle=[&]{++forget;};SettingsPane pane(&wifi,actions,&parent);pane.show();QTest::qWait(20);
+        const auto tabs=pane.findChildren<QTabWidget*>();QCOMPARE(tabs.size(),2);tabs[0]->setCurrentIndex(1);tabs[1]->setCurrentIndex(1);QVERIFY(!named(pane,"Forget Google")->isEnabled());
+        pane.updateGoogle({{"authenticated",true},{"status","Google connected"},{"available",QJsonArray{QJsonObject{{"url","googlecalendar:/fixture"},{"name","Work"}}}}});
+        for(const auto size:{QSize(1280,800),QSize(800,1280)}){pane.resize(size);QTest::qWait(20);QCOMPARE(pane.size(),size);for(auto *button:tabs[1]->currentWidget()->findChildren<QPushButton*>()){QVERIFY(pane.rect().contains(QRect(button->mapTo(&pane,QPoint()),button->size())));QVERIFY(button->height()>=44);}}
+        QTest::mouseClick(named(pane,"Connect Google"),Qt::LeftButton);QTest::mouseClick(named(pane,"Choose Google calendars"),Qt::LeftButton);QTest::mouseClick(named(pane,"Forget Google"),Qt::LeftButton);QCOMPARE(setup,1);QCOMPARE(choose,1);QCOMPARE(forget,1);
+    }
     void profileEditorValidatesAndPreservesHouseholdContext(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);QJsonObject saved;int calls=0;SettingsActions actions;actions.profile=[&](QJsonObject value){saved=value;++calls;};SettingsPane pane(&wifi,actions,&parent);
         auto initial=HouseholdProfile().json();initial["familyContext"]="Student One's school days matter";pane.updateProfile(initial);pane.show();auto *tabs=pane.findChild<QTabWidget*>();tabs->setCurrentIndex(3);

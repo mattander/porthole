@@ -11,6 +11,11 @@ public:
     void selectCalendars(const QList<Calendar> &calendars);
     void fetch(const QList<Calendar> &,QDate month);
     void forgetAccount();
+    void selectGoogleCalendars(const QList<Calendar> &calendars);
+    void forgetGoogleAccount();
+    QJsonObject googleState()const{return google;}
+    QString icloudStatus()const{return appleStatus;}
+    QList<Calendar> googleCalendars()const;
     void requestStatus();
     void briefingWeather(QJsonObject weather);
     void briefingSettings(bool enabled,QString priorities,int budgetCents);
@@ -37,9 +42,9 @@ private:
     bool preview=false,polling=false,authenticated=false,hasSaved=false;
     const QString endpoint;
     qint64 eventRevision=-1,selectionRevision=-1;
-    QString account,instance,lastStatus;
+    QString account,instance,lastStatus,appleStatus;
     QList<Calendar> available;
-    QJsonObject lastBriefing,cachedBriefingWeather,lastProfile;
+    QJsonObject lastBriefing,cachedBriefingWeather,lastProfile,google;
     QDate requestedMonth;
     QDateTime checked;
     QString calendarIssue;

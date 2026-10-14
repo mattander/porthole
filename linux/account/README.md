@@ -26,3 +26,10 @@ it through a hidden Mac-to-frame USB prompt. The GUI has no credential-read API.
 The credential writer accepts a fixed `forgetOpenai` operation from the calendar
 service only; it cannot choose an arbitrary file. Spending state and cached
 briefings live in a service-private StateDirectory. See [AI setup](../ai/README.md).
+
+## Google credential
+
+The backend also loads a separate encrypted `porthole-google` credential. The
+trusted USB importer uses a fixed target and hidden handshake; `forgetGoogle`
+removes only that credential. Google selections are stored privately by the
+backend, independently of iCloud. See [Google setup](../google/README.md).

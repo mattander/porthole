@@ -1,5 +1,6 @@
 #include "profile.h"
 #include "calendar-client.h"
+#include "google-calendar.h"
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QLocalSocket>
@@ -11,7 +12,7 @@ namespace {
 struct PendingRead {QByteArray bytes;bool completed=false;};
 QList<Calendar> calendars(const QJsonArray &values){
     QList<Calendar> result;
-    for(const auto &value:values){const auto item=value.toObject();const QUrl url(item["url"].toString());if(permittedCalendarUrl(url))result<<Calendar{url,item["name"].toString().left(100)};}
+    for(const auto &value:values){const auto item=value.toObject();const QUrl url(item["url"].toString());if(permittedCalendarUrl(url)||isGoogleCalendarUrl(url))result<<Calendar{url,item["name"].toString().left(100)};}
     return result;
 }
 }
@@ -56,9 +57,10 @@ void CalendarClient::receive(const QJsonObject &reply){
     }
     if(instance!=reply["instance"].toString()){instance=reply["instance"].toString();eventRevision=selectionRevision=-1;if(!cachedBriefingWeather.isEmpty())QTimer::singleShot(0,this,[this]{briefingWeather(cachedBriefingWeather);});if(requestedMonth.isValid())QTimer::singleShot(0,this,[this]{fetch({},requestedMonth);});}
     const auto summary=reply["briefing"].toObject();if(summary!=lastBriefing){lastBriefing=summary;emit briefingChanged(summary);}
-    authenticated=reply["authenticated"].toBool();hasSaved=reply["remembered"].toBool();account=reply["account"].toString();
+    google=reply["google"].toObject();appleStatus=reply["icloudStatus"].toString(reply["status"].toString());
+    authenticated=reply["icloudAuthenticated"].toBool(reply["authenticated"].toBool());hasSaved=reply["remembered"].toBool();account=reply["account"].toString();
     checked=QDateTime::fromString(reply["lastChecked"].toString(),Qt::ISODate);
-    calendarIssue=reply["calendarIssue"].toString();emit healthChanged(checked,calendarIssue,authenticated);
+    calendarIssue=reply["calendarIssue"].toString();emit healthChanged(checked,calendarIssue,authenticated||google["authenticated"].toBool());
     available=calendars(reply["available"].toArray());emit selectedChanged(calendars(reply["selected"].toArray()));
     const auto status=reply["status"].toString();if(status!=lastStatus){lastStatus=status;emit statusChanged(status);}
     if(reply.contains("events")){
@@ -85,3 +87,7 @@ void CalendarClient::refreshBriefing(){send({{"type","briefingRefresh"}});}
 void CalendarClient::forgetBriefingKey(){send({{"type","briefingForget"}});}
 
 void CalendarClient::saveProfile(QJsonObject profile){send({{"type","profileSettings"},{"profile",profile}});}
+
+QList<Calendar> CalendarClient::googleCalendars()const{return calendars(google["available"].toArray());}
+void CalendarClient::selectGoogleCalendars(const QList<Calendar> &items){QJsonArray urls;for(const auto &c:items)urls.append(c.url.toString());send({{"type","googleSelect"},{"urls",urls}});}
+void CalendarClient::forgetGoogleAccount(){send({{"type","googleForget"}});}

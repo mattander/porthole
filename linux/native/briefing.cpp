@@ -163,7 +163,7 @@ void BriefingEngine::invalidate(bool clearText){
     if(clearText){lastFingerprint.clear();checkedSlot.clear();lastCheck={};validatedAt={};generatedPeriod.clear();text.clear();generated={};}emit changed();
 }
 void BriefingEngine::calendarUnavailable(bool forget){
-    calendarChecked={};events.clear();invalidate(forget);if(forget)persist();if(enabled)status="AI waiting for fresh iCloud data";
+    calendarChecked={};events.clear();invalidate(forget);if(forget)persist();if(enabled)status="AI waiting for fresh calendar data";
 }
 void BriefingEngine::calendarData(const QList<Event> &values,QDateTime checked){events=values;calendarChecked=checked;refresh();}
 void BriefingEngine::weatherData(const QJsonObject &data){
@@ -196,7 +196,7 @@ void BriefingEngine::refresh(bool manual){
     if(time.date()<QDate(2026,1,1)){status="AI waiting for the correct clock";return;}
     if(!briefingWakingHours(time)){status="AI resting · next check at 6 AM";return;}
     if(lastCheck.isValid()&&lastCheck>time){status="AI paused · clock moved backwards";return;}
-    if(!calendarChecked.isValid()||calendarChecked.secsTo(time)>300||calendarChecked>time.addSecs(60)){status="AI waiting for fresh iCloud data";return;}
+    if(!calendarChecked.isValid()||calendarChecked.secsTo(time)>300||calendarChecked>time.addSecs(60)){status="AI waiting for fresh calendar data";return;}
     if(!weatherChecked.isValid()||weatherChecked.secsTo(time)>7200||weatherChecked>time.addSecs(60)){status="AI waiting for fresh weather";return;}
     if(active)return;
     const auto thisMonth=time.toString("yyyy-MM"),thisDay=time.toString("yyyy-MM-dd");
