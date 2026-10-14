@@ -1,0 +1,15 @@
+{
+  "policies": {
+    "DisableTelemetry": true,
+    "DisableFirefoxStudies": true,
+    "DisableFirefoxAccounts": true,
+    "DisableAppUpdate": true,
+    "DontCheckDefaultBrowser": true,
+    "CaptivePortal": false,
+    "NetworkPrediction": false,
+    "OverrideFirstRunPage": "",
+    "OverridePostUpdatePage": "",
+    "OfferToSaveLogins": false,
+    "DisableProfileImport": true
+  }
+}

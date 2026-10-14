@@ -1,0 +1,15 @@
+#!/bin/sh
+set -eu
+test "$(cat /sys/class/block/mmcblk0/device/type)" = SD
+modprobe st_accel_i2c
+if test ! -e /sys/bus/i2c/devices/1-0019; then
+    echo 'sc7a20 0x19' > /sys/bus/i2c/devices/i2c-1/new_device
+fi
+test -L /sys/bus/i2c/devices/1-0019/driver
+for sensor in /sys/bus/iio/devices/iio:device*; do
+    if test -f "$sensor/name" && test "$(cat "$sensor/name")" = sc7a20; then
+        echo 25 > "$sensor/sampling_frequency"
+        exit 0
+    fi
+done
+exit 1

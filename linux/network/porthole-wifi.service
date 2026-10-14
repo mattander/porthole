@@ -1,0 +1,12 @@
+[Unit]
+Description=Porthole verified SD-only Wi-Fi driver
+After=local-fs.target porthole-firewall.service
+Requires=porthole-firewall.service
+Before=iwd.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/porthole/wifi-start
+TimeoutStartSec=45
+[Install]
+WantedBy=multi-user.target

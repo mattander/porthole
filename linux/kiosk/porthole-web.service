@@ -1,0 +1,14 @@
+[Unit]
+Description=Porthole local-only sample dashboard
+After=local-fs.target
+[Service]
+User=frame
+Group=frame
+ExecStart=/usr/bin/python /usr/local/lib/porthole/dashboard-server.py
+Restart=on-failure
+RestartSec=3
+RuntimeDirectory=porthole-web
+RuntimeDirectoryMode=0700
+NoNewPrivileges=yes
+[Install]
+WantedBy=multi-user.target

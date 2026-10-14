@@ -1,0 +1,415 @@
+/* Tables and floats keep the frame's older WebView in the supported path. */
+* { box-sizing: border-box; }
+html { background: #f6f5ef; color: #253c3c; font-family: Roboto, Arial, sans-serif; }
+body { margin: 0; }
+button, a { -webkit-tap-highlight-color: rgba(27, 100, 93, .15); }
+button { font: inherit; color: inherit; cursor: pointer; }
+button, .text-button { min-height: 44px; }
+button { border: 1px solid #ccdad5; background: transparent; border-radius: 5px; padding: 0 16px; }
+button:hover { background: #e7eee8; }
+button:focus, a:focus, .agenda-list:focus { outline: 3px solid #26756a; outline-offset: 2px; }
+button:disabled { opacity: .5; cursor: default; }
+button[hidden], a[hidden], [hidden] { display: none; }
+.clearfix:after { content: ""; display: table; clear: both; }
+.display { max-width: 1680px; padding: 18px 34px 8px; margin: 0 auto; }
+.masthead { padding-bottom: 10px; }
+.clock-block { float: left; }
+.clock-line { line-height: 1; letter-spacing: -4px; white-space: nowrap; }
+#clock { font-size: 64px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.meridiem { margin-left: 12px; font-size: 23px; font-weight: 400; letter-spacing: 0; }
+.date-label { font-size: 20px; margin: 6px 0 0; }
+.identity { text-align: right; float: right; padding-top: 7px; }
+.wordmark { font-size: 28px; letter-spacing: -.8px; font-weight: 500; }
+.porthole-mark { display: inline-block; height: 21px; width: 21px; border: 3px solid #26756a; border-radius: 50%; margin-right: 9px; vertical-align: -1px; position: relative; }
+.porthole-mark:after { content: ""; position: absolute; width: 9px; height: 2px; left: 3px; top: 7px; background: #26756a; }
+.identity-caption { margin: 7px 0 0; font-size: 16px; color: #61736d; }
+.time-zone { margin: 12px 0 0; font-size: 13px; color: #61736d; }
+.notice { min-height: 34px; font-size: 13px; padding: 0 0 9px; color: #526761; border-bottom: 1px solid #d7ddd5; }
+#notice-text { line-height: 26px; }
+.notice.sample-notice { color: #785437; }
+.notice.error-notice { color: #954e35; }
+.text-button { border: 0; border-radius: 4px; padding: 0 8px; background: none; color: #24685d; font-size: 14px; text-decoration: none; display: inline-block; line-height: 44px; }
+.notice .text-button { float: right; min-height: 30px; line-height: 30px; margin-top: -2px; }
+.workspace { padding-top: 16px; }
+.calendar-pane { float: left; width: 72%; padding-right: 28px; }
+.section-heading { margin-bottom: 10px; }
+h1 { float: left; font-size: 29px; font-weight: 500; letter-spacing: -.6px; margin: 7px 0 0; }
+.month-controls { float: right; white-space: nowrap; }
+.month-controls button { font-size: 15px; margin-left: 5px; }
+.month-controls .arrow-button { width: 44px; padding: 0; font-family: Arial, sans-serif; font-size: 29px; line-height: 40px; }
+.month-table { border-collapse: collapse; table-layout: fixed; width: 100%; }
+.month-table th { font-size: 13px; font-weight: 400; color: #65766c; text-align: left; padding: 0 10px 7px; }
+.month-table td { padding: 0; border: 1px solid #dce0d7; vertical-align: top; height: 58px; background: #fbfaf5; }
+.month-table td.weekend { background: #f0f1e9; }
+.day-button { display: block; width: 100%; min-height: 57px; height: 100%; border: 0; border-radius: 0; padding: 4px 8px; text-align: left; position: relative; }
+.day-number { display: inline-block; width: 27px; height: 27px; line-height: 27px; text-align: center; font-size: 18px; }
+.outside-month .day-number { color: #90978d; }
+.today .day-number { color: #fff; background: #26756a; border-radius: 50%; }
+.today { background: #e6ede5 !important; }
+.selected { box-shadow: inset 0 0 0 2px #26756a; }
+.day-button:hover { background: rgba(38, 117, 106, .07); }
+.cell-events { display: block; margin-top: 2px; }
+.cell-event { display: block; text-overflow: ellipsis; overflow: hidden; white-space: nowrap; font-size: 14px; line-height: 18px; font-weight: 400; }
+.cell-event.family { color: #24685d; }
+.cell-event.home { color: #985630; }
+.cell-event.school { color: #4e6681; }
+.event-overflow { display: block; position: absolute; top: 9px; right: 8px; font-size: 10px; color: #627369; line-height: 18px; }
+.event-dots { display: none; }
+.calendar-foot { padding-top: 12px; }
+.legend { float: left; white-space: nowrap; font-size: 12px; color: #627369; line-height: 20px; }
+.legend span { margin-right: 13px; }
+.dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 5px; vertical-align: 1px; }
+.dot.family { background: #26756a; }
+.dot.home { background: #b77646; }
+.dot.school { background: #617b97; }
+.source-status { margin: 0; text-align: right; font-size: 12px; line-height: 20px; color: #627369; }
+.source-status.warning { color: #954e35; }
+.agenda-pane { float: left; width: 28%; padding-left: 25px; border-left: 1px solid #d7ddd5; }
+.agenda-heading h2 { font-size: 23px; font-weight: 500; margin: 9px 0 0; float: left; }
+.agenda-heading .text-button { float: right; padding-right: 0; }
+.agenda-caption { margin: 8px 0 18px; color: #65766c; font-size: 14px; line-height: 1.4; }
+.agenda-list { height: 300px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding-right: 8px; }
+.agenda-list::-webkit-scrollbar { width: 4px; }
+.agenda-list::-webkit-scrollbar-thumb { background: #bac9be; border-radius: 3px; }
+.agenda-group { margin: 0 0 19px; }
+.agenda-date { text-transform: uppercase; letter-spacing: 1px; font-size: 11px; font-weight: 500; color: #61736d; margin: 0 0 10px; }
+.agenda-date.is-today { color: #26756a; }
+.agenda-event { border-left: 3px solid #26756a; padding: 0 0 0 11px; margin: 0 0 16px; }
+.agenda-event.home { border-color: #b77646; }
+.agenda-event.school { border-color: #617b97; }
+.event-time { font-size: 13px; color: #61736d; margin: 0 0 4px; }
+.event-title { font-size: 19px; line-height: 1.28; font-weight: 400; margin: 0; overflow-wrap: break-word; word-wrap: break-word; }
+.event-location { font-size: 13px; color: #61736d; line-height: 1.4; margin: 5px 0 0; overflow-wrap: break-word; word-wrap: break-word; }
+.empty-state { margin-top: 27px; padding: 20px 0; }
+.empty-state h3 { font-size: 21px; font-weight: 400; margin: 0 0 9px; }
+.empty-state p { font-size: 15px; line-height: 1.55; color: #61736d; margin: 0; }
+.day-hint { font-size: 12px; color: #61736d; margin: 14px 0 0; }
+.weather-strip { margin-top: 12px; border-top: 1px solid #d7ddd5; padding-top: 10px; }
+.weather-current { width: 55%; float: left; }
+.weather-icon { height: 50px; width: 50px; float: left; margin: 10px 13px 0 0; }
+.weather-temperature { float: left; font-size: 49px; font-weight: 400; line-height: 65px; letter-spacing: -2px; margin-right: 19px; }
+.weather-description { overflow: hidden; padding-top: 4px; }
+.weather-description h2 { font-size: 16px; font-weight: 500; margin: 0 0 5px; }
+.weather-description p { font-size: 15px; margin: 0; line-height: 1.4; }
+.weather-description .weather-detail { color: #61736d; font-size: 12px; margin-top: 3px; }
+.forecast { width: 45%; float: right; padding-top: 3px; }
+.forecast-day { float: left; text-align: center; padding: 0 8px; border-left: 1px solid #d7ddd5; }
+.forecast-name { display: block; color: #61736d; font-size: 12px; margin-bottom: 7px; }
+.forecast-day img { display: inline-block; width: 29px; height: 29px; vertical-align: middle; margin-right: 8px; }
+.forecast-high { font-size: 18px; }
+.forecast-low { font-size: 14px; color: #61736d; margin-left: 6px; }
+.forecast-4 .forecast-day img, .forecast-5 .forecast-day img { display: block; width: 24px; height: 24px; margin: 0 auto 3px; }
+.forecast-4 .forecast-high, .forecast-5 .forecast-high { font-size: 16px; }
+.forecast-4 .forecast-low, .forecast-5 .forecast-low { font-size: 12px; margin-left: 4px; }
+.forecast-empty { text-align: right; color: #61736d; font-size: 14px; margin: 21px 0; }
+.display-footer { padding-top: 4px; font-size: 11px; color: #61736d; line-height: 44px; }
+.refresh-button { float: right; padding-right: 0; margin-left: 20px; }
+.refresh-button span { font-size: 19px; margin-left: 5px; }
+.footer-note { float: right; }
+.no-script { padding: 16px; color: #954e35; border: 1px solid #954e35; }
+@media (min-width: 1400px) { .day-button { min-height: 90px; } .agenda-list { height: 425px; } .cell-event { font-size: 15px; } }
+@media (max-width: 1050px) and (min-width: 761px) { .display { padding: 22px; } .calendar-pane { width: 68%; padding-right: 19px; } .agenda-pane { width: 32%; padding-left: 19px; } h1 { font-size: 25px; } .cell-event { font-size: 11px; } .weather-current { width: 58%; } .forecast { width: 42%; } .forecast-day img { display: block; margin: 0 auto 3px; } .weather-description .weather-detail { font-size: 11px; } }
+/* 10.1-inch 16:10 frame: keep all sections in view and spend spare height on
+   the calendar and agenda. The calendar body reserves 446px for the header,
+   controls, source labels and weather; divide its height across 4–6 weeks.
+   Smaller/shorter viewports retain the natural scrolling layout below. */
+@media (min-width: 1100px) and (min-height: 800px) and (min-aspect-ratio: 3/2) and (max-aspect-ratio: 17/10) {
+  .display { max-width: none; padding: 20px 26px 12px; }
+  .masthead { height: 104px; padding-bottom: 0; }
+  #clock { font-size: 76px; }
+  .meridiem { font-size: 25px; }
+  .date-label { font-size: 22px; margin-top: 3px; }
+  .identity { padding-top: 15px; }
+  .wordmark { font-size: 25px; }
+  .identity-caption { display: none; }
+  .time-zone { font-size: 14px; margin-top: 12px; }
+  .notice { min-height: 44px; height: 44px; padding: 0; font-size: 14px; }
+  #notice-text { line-height: 44px; }
+  .notice .text-button { min-height: 44px; line-height: 44px; margin-top: 0; }
+  .workspace { height: calc(100vh - 328px); padding-top: 10px; }
+  .calendar-pane { width: 70%; height: 100%; padding-right: 24px; }
+  .section-heading { height: 44px; margin-bottom: 8px; }
+  h1 { font-size: 31px; margin-top: 5px; }
+  .month-controls button { font-size: 16px; }
+  .month-controls .arrow-button { width: 48px; }
+  .month-table th { height: 24px; padding: 0 9px 8px; font-size: 14px; line-height: 16px; }
+  .month-table td { height: auto; }
+  .day-button { min-height: 58px; padding: 3px 8px; }
+  .weeks-4 .day-button { height: calc(25vh - 111.5px); }
+  .weeks-5 .day-button { height: calc(20vh - 89.2px); }
+  .weeks-6 .day-button { height: calc(16.666667vh - 74.333333px); }
+  .day-number { font-size: 23px; width: 30px; height: 30px; line-height: 30px; }
+  .cell-event { font-size: 16px; line-height: 20px; }
+  .event-overflow { top: 7px; right: 7px; font-size: 12px; }
+  .calendar-foot { padding-top: 8px; }
+  .legend, .source-status { font-size: 13px; line-height: 24px; }
+  .agenda-pane { width: 30%; height: 100%; padding-left: 24px; }
+  .agenda-heading { height: 44px; }
+  .agenda-heading h2 { font-size: 26px; margin-top: 8px; }
+  .agenda-caption { font-size: 15px; line-height: 20px; margin: 6px 0 14px; }
+  .agenda-list { height: calc(100% - 108px); }
+  .agenda-group { margin-bottom: 16px; }
+  .agenda-date { font-size: 13px; letter-spacing: .5px; margin-bottom: 9px; }
+  .agenda-event { margin-bottom: 14px; }
+  .event-time { font-size: 16px; }
+  .event-title { font-size: 22px; }
+  .event-location { font-size: 15px; margin-top: 4px; }
+  .day-hint { font-size: 13px; line-height: 14px; margin-top: 10px; }
+  .weather-strip { height: 90px; margin-top: 12px; padding-top: 12px; }
+  .weather-current { width: 50%; }
+  .weather-temperature { font-size: 52px; }
+  .weather-description h2 { font-size: 18px; margin-bottom: 4px; }
+  .weather-description p { font-size: 17px; }
+  .weather-description .weather-detail { font-size: 14px; }
+  .forecast { width: 50%; }
+  .forecast-name { font-size: 14px; }
+  .forecast-high { font-size: 22px; }
+  .forecast-low { font-size: 16px; }
+  .forecast-4 .forecast-high, .forecast-5 .forecast-high { font-size: 19px; }
+  .forecast-4 .forecast-low, .forecast-5 .forecast-low { font-size: 15px; }
+  .display-footer { height: 44px; padding-top: 0; font-size: 12px; }
+  .footer-note { display: none; }
+}
+@media (max-width: 760px) {
+  .display { padding: 21px 17px 12px; }
+  .masthead { padding-bottom: 19px; }
+  #clock { font-size: 59px; }
+  .clock-line { letter-spacing: -3px; }
+  .meridiem { font-size: 15px; margin-left: 7px; }
+  .date-label { font-size: 16px; margin-top: 8px; }
+  .identity { padding-top: 5px; }
+  .wordmark { font-size: 20px; letter-spacing: -.5px; }
+  .porthole-mark { width: 16px; height: 16px; border-width: 2px; margin-right: 5px; vertical-align: 0; }
+  .porthole-mark:after { width: 8px; top: 5px; left: 2px; }
+  .identity-caption { display: none; }
+  .time-zone { font-size: 11px; margin-top: 9px; max-width: 105px; }
+  .notice { font-size: 12px; }
+  #notice-text { line-height: 1.6; display: inline-block; max-width: 73%; }
+  .notice .text-button { font-size: 12px; min-height: 44px; line-height: 44px; margin-top: -9px; }
+  .workspace { padding-top: 15px; }
+  .calendar-pane, .agenda-pane { width: 100%; float: none; padding: 0; border: 0; }
+  h1 { font-size: 23px; margin-top: 10px; }
+  .month-controls button { padding: 0 10px; font-size: 13px; margin-left: 2px; }
+  .month-controls .arrow-button { width: 44px; }
+  .month-table th { text-align: center; font-size: 11px; padding: 0 0 9px; }
+  .month-table td { height: 58px; }
+  .day-button { min-height: 57px; padding: 5px 2px; text-align: center; }
+  .day-number { font-size: 16px; width: 26px; height: 26px; line-height: 26px; }
+  .cell-events { display: none; }
+  .event-dots { display: block; min-height: 9px; margin-top: 4px; line-height: 9px; }
+  .event-dots .dot { width: 5px; height: 5px; margin: 0 1px; vertical-align: 0; }
+  .legend { font-size: 11px; float: none; }
+  .source-status { text-align: left; font-size: 11px; margin-top: 5px; }
+  .agenda-pane { border-top: 1px solid #d7ddd5; margin-top: 19px; padding-top: 13px; }
+  .agenda-heading h2 { font-size: 23px; }
+  .agenda-caption { margin-bottom: 18px; }
+  .agenda-list { height: auto; max-height: 420px; padding-right: 4px; }
+  .agenda-group { margin-bottom: 20px; }
+  .event-title { font-size: 19px; }
+  .day-hint { margin-top: 4px; }
+  .weather-strip { margin-top: 20px; padding-top: 17px; }
+  .weather-current, .forecast { float: none; width: 100%; }
+  .weather-temperature { font-size: 42px; margin-right: 15px; }
+  .weather-icon { width: 41px; height: 41px; margin-right: 10px; }
+  .weather-description h2 { font-size: 15px; }
+  .weather-description p { font-size: 14px; }
+  .weather-description .weather-detail { font-size: 11px; }
+  .forecast { margin-top: 18px; }
+  .forecast-day:first-child { border-left: 0; }
+  .forecast-day img { margin-right: 4px; width: 25px; height: 25px; }
+  .forecast-high { font-size: 16px; }
+  .forecast-low { font-size: 12px; margin-left: 4px; }
+  .forecast-5 .forecast-high, .forecast-5 .forecast-low { display: block; line-height: 18px; margin-left: 0; }
+  .forecast-empty { text-align: left; margin: 0; }
+  .footer-note { display: none; }
+  .display-footer { font-size: 10px; }
+}
+@media (max-width: 360px) { .display { padding-left: 10px; padding-right: 10px; } #clock { font-size: 51px; } .wordmark { font-size: 18px; } .date-label { font-size: 14px; } h1 { font-size: 21px; } .weather-temperature { margin-right: 10px; } .forecast-day img { display: block; margin: 0 auto 4px; } }
+
+/* The everyday wall display: time and weather on the left, today's plans on
+   the right. Calendar browsing is a secondary view of the same data. */
+.agenda-status { display: none; }
+.calendar-view .conditions { display: none; }
+.day-view .display { max-width: none; padding: 20px 28px 12px; }
+.day-view .notice { height: 44px; min-height: 44px; padding: 0; font-size: 14px; }
+.day-view #notice-text { line-height: 44px; }
+.day-view .notice .text-button { min-height: 44px; line-height: 44px; margin-top: 0; }
+/* 140px reserves the notice, outer spacing and footer at 1280×800. */
+.day-view .board { height: calc(100vh - 140px); margin-top: 20px; }
+.day-view .conditions { float: left; width: 56%; height: 100%; padding-right: 34px; }
+.day-view .masthead { height: 340px; padding: 12px 0 0; }
+.day-view .clock-block { float: none; }
+.day-view .clock-line { letter-spacing: -10px; }
+.day-view #clock { font-size: 16vw; }
+.day-view .meridiem { font-size: 36px; margin-left: 14px; }
+.day-view .date-label { font-size: 38px; line-height: 1.25; letter-spacing: -1px; margin-top: 12px; }
+.day-view .identity { float: none; text-align: left; padding: 0; }
+.day-view .wordmark, .day-view .identity-caption { display: none; }
+.day-view .time-zone { font-size: 14px; margin-top: 10px; }
+.day-view .workspace { float: right; width: 44%; height: 100%; padding-top: 0; }
+.day-view .calendar-pane { display: none; }
+.day-view .agenda-pane { width: 100%; height: 100%; padding-left: 34px; padding-top: 12px; }
+.day-view .agenda-heading { height: 56px; }
+.day-view .agenda-heading h2 { font-size: 46px; line-height: 56px; letter-spacing: -1px; margin: 0; }
+.day-view .agenda-caption { font-size: 22px; line-height: 28px; margin: 8px 0 22px; }
+.day-view .agenda-list { height: calc(100% - 180px); padding-right: 14px; }
+.day-view .agenda-list::-webkit-scrollbar { width: 6px; }
+.day-view .agenda-group { margin: 0; }
+.day-view .agenda-event { border-left-width: 4px; padding-left: 18px; margin-bottom: 36px; }
+.day-view .event-time { font-size: 22px; line-height: 1.3; margin-bottom: 10px; word-wrap: break-word; }
+.day-view .event-title { font-size: 34px; line-height: 1.28; }
+.day-view .event-location { font-size: 19px; margin-top: 10px; }
+.day-view .day-hint { font-size: 14px; line-height: 18px; margin-top: 8px; }
+.day-view .day-hint:empty { display: none; }
+.day-view .agenda-status { display: block; font-size: 14px; line-height: 22px; color: #61736d; margin: 16px 0 0; }
+.day-view .empty-state { margin-top: 24px; }
+.day-view .empty-state h3 { font-size: 36px; }
+.day-view .empty-state p { font-size: 21px; }
+.day-view .weather-strip { height: auto; margin-top: 0; padding-top: 26px; }
+.day-view .weather-current { float: none; width: 100%; }
+.day-view .weather-icon { width: 84px; height: 84px; margin: 24px 18px 0 0; }
+.day-view .weather-temperature { font-size: 112px; line-height: 128px; margin-right: 24px; letter-spacing: -5px; }
+.day-view .weather-description { padding-top: 22px; }
+.day-view .weather-description h2 { font-size: 22px; margin-bottom: 8px; }
+.day-view .weather-description p { font-size: 28px; line-height: 1.3; }
+.day-view .weather-description .weather-detail { font-size: 18px; margin-top: 7px; }
+.day-view .forecast { float: none; width: 100%; margin-top: 28px; padding-top: 0; }
+.day-view .forecast-name { font-size: 20px; margin-bottom: 8px; }
+.day-view .forecast-day:first-child { border-left: 0; }
+.day-view .forecast-day img { width: 38px; height: 38px; margin-right: 9px; }
+.day-view .forecast-high { font-size: 28px; }
+.day-view .forecast-low { font-size: 22px; }
+.day-view .forecast-4 .forecast-day img, .day-view .forecast-5 .forecast-day img { display: block; width: 32px; height: 32px; margin: 0 auto 6px; }
+.day-view .forecast-4 .forecast-high, .day-view .forecast-5 .forecast-high { font-size: 24px; }
+.day-view .forecast-4 .forecast-low, .day-view .forecast-5 .forecast-low { font-size: 18px; }
+.day-view .forecast-empty { text-align: left; font-size: 19px; }
+.day-view .display-footer { height: 44px; padding-top: 0; font-size: 14px; }
+@media (min-width: 961px) and (max-height: 719px) {
+  .day-view .board { height: auto; }
+  .day-view .masthead { height: 300px; }
+  .day-view .agenda-pane { height: 540px; }
+  .day-view .weather-temperature { font-size: 90px; }
+  .day-view .weather-description p { font-size: 23px; }
+}
+@media (max-width: 960px) {
+  .day-view .display { padding: 16px 20px 12px; }
+  .day-view .notice { height: auto; padding-bottom: 10px; font-size: 12px; }
+  .day-view #notice-text { line-height: 1.6; max-width: 73%; }
+  .day-view .notice .text-button { font-size: 12px; }
+  .day-view .board { height: auto; margin-top: 22px; }
+  .day-view .conditions, .day-view .workspace { float: none; width: 100%; height: auto; padding: 0; }
+  .day-view .masthead { height: auto; padding: 0 0 25px; }
+  .day-view .clock-line { letter-spacing: -5px; }
+  .day-view #clock { font-size: 96px; }
+  .day-view .meridiem { font-size: 23px; margin-left: 10px; }
+  .day-view .date-label { font-size: 27px; letter-spacing: -.5px; margin-top: 7px; }
+  .day-view .time-zone { font-size: 12px; margin-top: 8px; max-width: none; }
+  .day-view .weather-strip { padding-top: 20px; }
+  .day-view .weather-temperature { font-size: 74px; line-height: 94px; margin-right: 16px; letter-spacing: -3px; }
+  .day-view .weather-icon { height: 49px; width: 49px; margin: 24px 12px 0 0; }
+  .day-view .weather-description { padding-top: 12px; }
+  .day-view .weather-description h2 { font-size: 17px; margin-bottom: 5px; }
+  .day-view .weather-description p { font-size: 21px; }
+  .day-view .weather-description .weather-detail { font-size: 12px; margin-top: 4px; }
+  .day-view .forecast { margin-top: 18px; }
+  .day-view .forecast-name { font-size: 15px; }
+  .day-view .forecast-day img { display: block; width: 32px; height: 32px; margin: 0 auto 6px; }
+  .day-view .forecast-high { font-size: 22px; }
+  .day-view .forecast-low { font-size: 16px; }
+  .day-view .forecast-4 .forecast-high, .day-view .forecast-5 .forecast-high { font-size: 19px; }
+  .day-view .forecast-4 .forecast-low, .day-view .forecast-5 .forecast-low { font-size: 14px; }
+  .day-view .agenda-pane { height: auto; border-left: 0; border-top: 1px solid #d7ddd5; margin-top: 26px; padding: 21px 0 0; }
+  .day-view .agenda-heading h2 { font-size: 34px; }
+  .day-view .agenda-caption { font-size: 18px; margin: 3px 0 22px; }
+  .day-view .agenda-list { height: auto; max-height: 500px; }
+  .day-view .event-time { font-size: 18px; }
+  .day-view .event-title { font-size: 27px; }
+  .day-view .event-location { font-size: 16px; }
+  .day-view .agenda-event { margin-bottom: 28px; padding-left: 14px; }
+  .day-view .agenda-status { font-size: 12px; }
+  .day-view .empty-state h3 { font-size: 28px; }
+  .day-view .empty-state p { font-size: 17px; }
+  .day-view .display-footer { height: auto; margin-top: 18px; font-size: 11px; }
+  .day-view #weather-status { display: block; line-height: 20px; margin-bottom: 10px; }
+}
+@media (max-width: 360px) {
+  .day-view .display { padding-left: 14px; padding-right: 14px; }
+  .day-view #clock { font-size: 84px; }
+  .day-view .date-label { font-size: 24px; }
+  .day-view .weather-temperature { font-size: 64px; }
+  .day-view .weather-icon { width: 40px; height: 40px; }
+  .day-view .weather-description p { font-size: 18px; }
+}
+
+.view-tabs { float: right; margin-right: 20px; white-space: nowrap; }
+.view-tabs button { min-height: 44px; padding: 0 16px; margin-left: 4px; border-color: transparent; font-size: 16px; }
+.view-tabs button:first-child { margin-left: 0; }
+.view-tabs button[aria-selected="true"] { background: #26756a; color: #fff; border-color: #26756a; }
+
+/* Calendar mode spends the entire board on the month and selected day. */
+.calendar-view .display { max-width: none; padding: 20px 28px 12px; }
+.calendar-view .notice { height: 44px; min-height: 44px; padding: 0; font-size: 14px; }
+.calendar-view #notice-text { line-height: 44px; }
+.calendar-view .notice .text-button { min-height: 44px; line-height: 44px; margin-top: 0; }
+.calendar-view .board { margin-top: 20px; }
+.calendar-view .workspace { width: 100%; height: auto; padding: 0; }
+.calendar-view .calendar-pane { width: 68%; height: 100%; padding-right: 28px; }
+.calendar-view .agenda-pane { width: 32%; height: 100%; padding-left: 28px; }
+.calendar-view .section-heading { height: 44px; margin-bottom: 10px; }
+.calendar-view h1 { font-size: 32px; margin-top: 4px; }
+.calendar-view .month-table th { height: 24px; font-size: 14px; line-height: 18px; padding: 0 10px 6px; }
+.calendar-view .month-table td { height: auto; }
+.calendar-view .day-button { height: 100px; min-height: 88px; padding: 3px 8px; }
+.calendar-view .day-number { position: absolute; top: 6px; left: 8px; width: 30px; height: 30px; line-height: 30px; font-size: 24px; }
+.calendar-view .cell-events { position: absolute; top: 39px; left: 8px; right: 8px; margin: 0; }
+.calendar-view .cell-event { font-size: 18px; line-height: 22px; }
+.calendar-view .event-overflow { top: -27px; right: 0; font-size: 12px; }
+.calendar-view .calendar-foot { padding-top: 8px; }
+.calendar-view .legend, .calendar-view .source-status { font-size: 13px; line-height: 24px; }
+.calendar-view .agenda-heading { height: 44px; }
+.calendar-view .agenda-heading h2 { font-size: 30px; margin-top: 4px; }
+.calendar-view .agenda-caption { font-size: 19px; line-height: 24px; margin: 12px 0 22px; }
+.calendar-view .agenda-list { height: 420px; }
+.calendar-view .event-time { font-size: 18px; }
+.calendar-view .event-title { font-size: 27px; }
+.calendar-view .event-location { font-size: 17px; }
+.calendar-view .agenda-event { margin-bottom: 26px; padding-left: 15px; }
+.calendar-view .day-hint { font-size: 13px; line-height: 18px; margin-top: 10px; }
+.calendar-view .agenda-status { display: block; font-size: 14px; line-height: 22px; color: #61736d; margin: 14px 0 0; }
+.calendar-view .display-footer { height: 44px; padding: 0; }
+@media (min-width: 961px) and (min-height: 800px) {
+  .calendar-view .board { height: calc(100vh - 140px); }
+  .calendar-view .workspace { height: 100%; }
+  /* Calendar body height is 100vh minus 264px, shared by 4–6 weeks. */
+  .calendar-view .weeks-4 .day-button { height: calc(25vh - 66px); }
+  .calendar-view .weeks-5 .day-button { height: calc(20vh - 52.8px); }
+  .calendar-view .weeks-6 .day-button { height: calc(16.666667vh - 44px); }
+  .calendar-view .agenda-list { height: calc(100% - 204px); }
+}
+@media (max-width: 960px) {
+  .view-tabs { float: left; margin-right: 0; }
+  .view-tabs button { font-size: 14px; padding: 0 8px; margin-left: 2px; }
+  .refresh-button { font-size: 12px; margin-left: 4px; }
+  .calendar-view .display { padding: 16px 20px 12px; }
+  .calendar-view .notice { height: auto; padding-bottom: 10px; font-size: 12px; }
+  .calendar-view #notice-text { line-height: 1.6; max-width: 73%; }
+  .calendar-view .notice .text-button { font-size: 12px; }
+}
+@media (max-width: 760px) {
+  .calendar-view .calendar-pane, .calendar-view .agenda-pane { float: none; width: 100%; height: auto; padding: 0; }
+  .calendar-view .agenda-pane { padding-top: 18px; }
+  .calendar-view .section-heading { height: auto; }
+  .calendar-view h1 { font-size: 23px; margin-top: 10px; }
+  .calendar-view .month-table th { font-size: 11px; text-align: center; padding: 0 0 7px; }
+  .calendar-view .day-button { min-height: 57px; height: 57px; padding: 5px 2px; }
+  .calendar-view .day-number { position: static; font-size: 16px; width: 26px; height: 26px; line-height: 26px; }
+  .calendar-view .cell-events { display: none; }
+  .calendar-view .legend, .calendar-view .source-status { font-size: 11px; }
+  .calendar-view .agenda-list { height: auto; max-height: 420px; }
+  .calendar-view .agenda-heading h2 { font-size: 26px; }
+  .calendar-view .event-title { font-size: 25px; }
+  .calendar-view .display-footer { height: auto; margin-top: 20px; }
+}
+@media (max-width: 360px) {
+  .calendar-view .display { padding-left: 14px; padding-right: 14px; }
+}

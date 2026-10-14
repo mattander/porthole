@@ -1,0 +1,46 @@
+#!/bin/sh
+set -eu
+test "$(findmnt -n -o SOURCE /)" = /dev/mmcblk0p2
+test "$(cat /sys/class/block/mmcblk0/device/type)" = SD
+test "$(uname -r)" = 7.2.10-1-armv7-ARCH
+grep -qi '^SDIO_ID=C8A1:C08D$' /sys/bus/sdio/devices/*/uevent
+for module in aic8800_bsp aic8800_fdrv; do
+    case "$(modinfo -F vermagic "$module")" in
+        7.2.10-1-armv7-ARCH\ *) ;;
+        *) echo 'Wi-Fi module/kernel mismatch' >&2; exit 1 ;;
+    esac
+done
+# Refresh only the verified Wi-Fi host if no adapter is bound. A card left
+# enumerated without a function driver can time out when first used later.
+# This host is distinct from the SD root host; never reset mmc0.
+if ! test -e /sys/class/net/wlan0/phy80211; then
+    test "$(readlink -f /sys/class/mmc_host/mmc1/device)" = /sys/devices/platform/soc/1c10000.mmc
+    test "$(readlink -f /sys/class/mmc_host/mmc0/device)" != /sys/devices/platform/soc/1c10000.mmc
+    test ! -d /sys/module/aic8800_fdrv
+    if test -d /sys/module/aic8800_bsp; then modprobe -r aic8800_bsp; fi
+    printf '1c10000.mmc\n' > /sys/bus/platform/drivers/sunxi-mmc/unbind
+    printf '1c10000.mmc\n' > /sys/bus/platform/drivers/sunxi-mmc/bind
+    for attempt in 1 2 3 4 5; do
+        if grep -qi '^SDIO_ID=C8A1:C08D$' /sys/bus/sdio/devices/*/uevent 2>/dev/null; then break; fi
+        sleep 1
+    done
+    grep -qi '^SDIO_ID=C8A1:C08D$' /sys/bus/sdio/devices/*/uevent
+fi
+modprobe aic8800_bsp
+modprobe aic8800_fdrv country_code=CA
+interface=''
+for attempt in 1 2 3 4 5 6 7 8; do
+    for path in /sys/class/net/*/phy80211; do
+        if test -e "$path"; then
+            interface=$(basename "$(dirname "$path")")
+            break
+        fi
+    done
+    test -z "$interface" || break
+    sleep 1
+done
+test -n "$interface"
+# Set the card's private stable address before iwd can scan or obtain DHCP.
+ip link set dev "$interface" down
+ip link set dev "$interface" address "$(cat /etc/porthole/wifi-mac)"
+printf 'Verified AIC8800 Wi-Fi interface ready.\n'

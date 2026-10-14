@@ -1,0 +1,22 @@
+[Unit]
+Description=Porthole Linux browser hardware test
+StartLimitIntervalSec=60
+Conflicts=getty@tty1.service
+Requires=porthole-display.service seatd.service porthole-web.service
+After=porthole-display.service seatd.service porthole-web.service
+[Service]
+User=frame
+Group=frame
+SupplementaryGroups=video input render seat
+RuntimeDirectory=porthole-kiosk
+RuntimeDirectoryMode=0700
+ExecStartPre=+/usr/bin/modprobe lima
+ExecStart=/usr/local/lib/porthole/kiosk-start
+Restart=on-failure
+RestartSec=5
+TTYPath=/dev/tty1
+StandardInput=tty
+TTYReset=yes
+TTYVHangup=yes
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,13 @@
+[Unit]
+Description=Porthole automatic screen orientation
+After=porthole-kiosk.service porthole-orientation-sensor.service
+Requires=porthole-kiosk.service porthole-orientation-sensor.service
+[Service]
+User=frame
+Group=frame
+Environment=XDG_RUNTIME_DIR=/run/porthole-kiosk
+ExecStart=/usr/bin/python /usr/local/lib/porthole/orientation.py
+Restart=on-failure
+RestartSec=3
+[Install]
+WantedBy=multi-user.target

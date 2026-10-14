@@ -1,0 +1,10 @@
+[Unit]
+Description=Porthole inbound network firewall
+After=local-fs.target
+Before=iwd.service porthole-wifi.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/porthole/firewall-start
+[Install]
+WantedBy=multi-user.target

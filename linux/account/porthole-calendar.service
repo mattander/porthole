@@ -1,0 +1,32 @@
+[Unit]
+Description=Porthole read-only iCloud calendar service
+Requires=porthole-credentials.service
+After=porthole-credentials.service systemd-resolved.service
+[Service]
+User=porthole-calendar
+Group=porthole
+SupplementaryGroups=porthole-calendar
+RuntimeDirectory=porthole-calendar
+RuntimeDirectoryMode=0750
+StateDirectory=porthole-calendar
+StateDirectoryMode=0700
+LoadCredentialEncrypted=porthole-icloud
+SetCredential=porthole-icloud:{}
+LoadCredentialEncrypted=porthole-openai
+SetCredential=porthole-openai:{}
+ExecStart=/usr/local/bin/porthole-calendar
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ReadWritePaths=/run/porthole-calendar /var/lib/porthole-calendar
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+LockPersonality=yes
+LimitCORE=0
+UMask=0007
+[Install]
+WantedBy=multi-user.target

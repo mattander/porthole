@@ -1,0 +1,10 @@
+[Unit]
+Description=Porthole verified orientation sensor
+After=porthole-display.service
+Requires=porthole-display.service
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/porthole/orientation-sensor-start
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,20 @@
 # PF1007L access and recovery plan
 
+## Current milestone — 2026-10-13
+
+The historical access candidates below are superseded by verified offline USB-root access on this unit. The original 15,758,000,128-byte user-area backup passed two full-device reads, saved-image verification, and compressed readback. Following explicit user authorization, the boot image derived from that backup was patched to enable USB ADB. The write scope was two header sectors plus the existing ramdisk slot; no kernel, bootloader, recovery, system, or separate hardware boot-area writes were requested.
+
+Both modified ranges matched immediate readback. A full post-write user-area scan was interrupted by USB loss at approximately 1%; its failure remains recorded. The subsequently selected fast approach reloaded only the proven hardware-read-only exporter and compared the entire 33,554,432-byte boot partition twice against the original plus intended changes. Both reads matched, including original kernel and unchanged padding. This does not claim completed post-write verification of the rest of the user area.
+
+After power-off, SD removal, and Android boot, a task-local ADB server restricted to the confirmed frame returned `uid=0(root)` and `sys.boot_completed=1`. Runtime facts: Android 6.0.1/API 23, Linux 3.4.39, ARMv7, display 1280×800/density 160, MemTotal 1,026,980 kB, and Android WebView 44.0.2403.119. Loaded Wi-Fi drivers are aic8800; touch/display drivers include gslX680new, disp, lcd, and mali. Exact silicon revisions and replacement-OS driver compatibility are still unproven.
+
+Wi-Fi was enabled at this runtime checkpoint and was disabled to preserve the approved offline setup. The IPv4 and IPv6 socket tables contained no TCP port 5555 listener. The temporary host ADB server was stopped. No Android trust approval, network ADB command, `adb root`, or package installation was needed for this check.
+
+Private evidence is retained in ignored `local/usb-root-status.json`, `local/usb-root-boot-fast-status.json`, `local/usb-root-boot-fast-proof-private.json`, `local/android-root-check-private.json`, and `local/android-offline-check-private.json`; the failed attempt remains preserved. Hardware boot-area coverage and an actual restore are still unverified. An offline frontend preview has since been installed and tested in the existing WebView. A separate SD-only Linux image has now passed host validation; the current phase is card preparation and staged physical bring-up, recorded in [the Linux SD plan](linux-sd-bringup.md).
+
+## Historical investigation
+
+
 Initial research: 2026-10-12. Current milestone: 2026-10-13.
 
 The user approved host-tool setup, backing up a spare SD prefix and writing/read-verifying an 8 KiB FEL stub on that card, plus source-reviewed RAM-only code for read-only storage export. Those steps are complete. FEL directly confirms A33. A lower-clock U-Boot build retains both UMS write protections and has completed a verified 15,758,000,128-byte eMMC user-area capture, including two independent full-device reads and compressed readback. No internal storage writes were sent; no frame network access was enabled by this task.

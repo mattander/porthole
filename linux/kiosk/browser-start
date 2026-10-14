@@ -1,0 +1,6 @@
+#!/bin/sh
+set -eu
+mkdir -p /run/porthole-kiosk/firefox-profile
+cp /etc/porthole/firefox-user.js /run/porthole-kiosk/firefox-profile/user.js
+export MOZ_ENABLE_WAYLAND=1
+exec firefox --no-remote --profile /run/porthole-kiosk/firefox-profile --kiosk 'http://127.0.0.1:8765/?demo=1'

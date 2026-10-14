@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+export XDG_RUNTIME_DIR=/run/porthole-kiosk
+export LIBSEAT_BACKEND=seatd
+export WLR_DRM_DEVICES=/dev/dri/card0
+export WLR_RENDER_DRM_DEVICE=/dev/dri/renderD128
+export WLR_RENDERER=gles2
+export MOZ_ENABLE_WAYLAND=1
+exec dbus-run-session -- sway -c /etc/porthole/sway.conf

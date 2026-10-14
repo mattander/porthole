@@ -1,0 +1,9 @@
+#!/bin/sh
+set -eu
+root=$(findmnt -n -o SOURCE /)
+case "$root" in /dev/mmcblk*p*) ;; *) echo "Expected SD root" >&2; exit 1 ;; esac
+disk=$(basename "$(readlink -f "/sys/class/block/${root#/dev/}/..")")
+test "$(cat "/sys/class/block/$disk/device/type")" = SD
+for p in /sys/class/block/mmcblk*/device/type; do test "$(cat "$p")" != MMC; done
+for module in pwm-sun4i panel-jadard-jd9365da-h3 sun6i_mipi_dsi sun4i-frontend sun4i-backend sun6i_drc sun4i-tcon sun4i-drm; do modprobe "$module"; done
+# GPU rendering is a later test; keep Lima manually loaded for now.

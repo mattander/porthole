@@ -1,0 +1,68 @@
+#include "dashboard-widgets.h"
+#include "diagnostics.h"
+#include <QImage>
+#include <QJsonArray>
+#include <QJsonDocument>
+#include <QSignalSpy>
+#include <QtTest>
+#include <cmath>
+
+namespace {
+int inkBottom(const QImage &image,int first,int last){int bottom=-1;for(int y=0;y<image.height();++y)for(int x=qMax(0,first);x<qMin(image.width(),last);++x){const auto pixel=image.pixelColor(x,y);if(pixel.red()<100&&pixel.green()<100&&pixel.blue()<100)bottom=y;}return bottom;}
+}
+class LayoutTests:public QObject {
+    Q_OBJECT
+private slots:
+    void clockGlyphsShareBottomBaseline(){
+        ClockFace clock;QPalette palette;palette.setColor(QPalette::Window,Qt::white);palette.setColor(QPalette::WindowText,Qt::black);clock.setPalette(palette);
+        for(bool portrait:{false,true})for(QTime time:{QTime(0,5),QTime(12,59),QTime(23,11)}){
+            clock.setPortrait(portrait);clock.resize(portrait?744:620,clock.height());clock.setTime(time);QVERIFY(clock.accessibleName().startsWith(QString::number(time.hour()%12?time.hour()%12:12)+":"));clock.show();QTest::qWait(10);
+            QImage image(clock.size(),QImage::Format_ARGB32);image.fill(Qt::white);clock.render(&image);
+            const int split=qRound(clock.splitPosition());const int digits=inkBottom(image,0,split-12),period=inkBottom(image,split,image.width());
+            QVERIFY(digits>=0);QVERIFY(period>=0);QVERIFY2(std::abs(digits-period)<=2,"The visible AM/PM ink must share the time's baseline");
+        }
+    }
+    void footerControlsShareRowAndUpdateTextIsBottomAligned(){
+        DashboardFooter footer;QSignalSpy views(&footer,&DashboardFooter::viewRequested),settings(&footer,&DashboardFooter::settingsRequested);
+        const auto checked=QDateTime::currentDateTimeUtc();footer.setUpdateTimes(checked,checked,checked,true);footer.show();
+        for(int width:{1216,748,576}){
+            footer.resize(width,63);QTest::qWait(20);auto *updated=footer.findChild<QLabel*>("lastUpdated");QVERIFY(updated);
+            auto *gear=footer.findChild<QPushButton*>("settingsButton");QVERIFY(gear);
+            const int bottom=gear->geometry().bottom();QCOMPARE(updated->geometry().bottom(),bottom);
+            for(auto *button:footer.findChildren<QPushButton*>()){QCOMPARE(button->geometry().bottom(),bottom);QVERIFY(footer.rect().contains(button->geometry()));QCOMPARE(button->height(),48);}
+        }
+        auto *tomorrow=footer.findChild<QPushButton*>("viewButton1");QTest::mouseClick(tomorrow,Qt::LeftButton);QCOMPARE(views.count(),1);QCOMPARE(views.first().first().toInt(),1);
+        auto *gear=footer.findChild<QPushButton*>("settingsButton");QTest::mouseClick(gear,Qt::LeftButton);QCOMPARE(settings.count(),1);
+        footer.setIssueCount(2);QVERIFY(gear->accessibleName().contains("2"));
+    }
+    void weatherSymbolsHandleSupportedAndMissingConditions(){
+        WeatherIcon icon;icon.show();for(int code:{0,1,2,3,45,48,51,61,71,80,85,95,99,-1,123}){
+            icon.setCode(code);QTest::qWait(2);QImage image(icon.size(),QImage::Format_ARGB32);image.fill(Qt::transparent);icon.render(&image);
+            QVERIFY(!image.isNull());QVERIFY(!icon.accessibleName().isEmpty());QCOMPARE(validWeatherCode(code),code>=0&&code!=123);
+        }
+        QCOMPARE(weatherCondition(3),QString("Cloudy"));QCOMPARE(weatherCondition(-1),QString("Unavailable"));
+        ForecastStrip forecast;forecast.resize(620,85);forecast.setForecast({{QDate(2026,10,15),61,13,7},{QDate(2026,10,16),3,12,5},{QDate(2026,10,17),0,15,6}});forecast.show();QTest::qWait(10);QCOMPARE(forecast.findChildren<WeatherIcon*>().size(),3);
+    }
+    void diagnosticsKeepActiveIssuesWhenHistoryIsTrimmed(){
+        Diagnostics diagnostics;diagnostics.fail(DataSource::Calendar,IssueCode::CalendarSignIn);
+        for(int i=0;i<200;++i){diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);diagnostics.recover(DataSource::Weather);}
+        QCOMPARE(diagnostics.activeCount(),1);QVERIFY(diagnostics.hasActive(DataSource::Calendar));QVERIFY(diagnostics.snapshot()["issues"].toArray().size()<=50);
+        diagnostics.clearResolved();QCOMPARE(diagnostics.snapshot()["issues"].toArray().size(),1);
+        diagnostics.recover(DataSource::Calendar);diagnostics.clearResolved();QCOMPARE(diagnostics.activeCount(),0);QVERIFY(diagnostics.snapshot()["issues"].toArray().isEmpty());
+    }
+    void diagnosticExportDropsUnexpectedPrivateFields(){
+        Diagnostics diagnostics;diagnostics.fail(DataSource::Calendar,IssueCode::CalendarUnavailable);auto state=diagnostics.snapshot();
+        state["password"]="private-password";state["account"]="private-account";state["events"]=QJsonArray{"private-event"};
+        state["sources"]=QJsonArray{QJsonObject{{"name","iCloud"},{"status","private-token"},{"checked","private-time"},{"account","private-account"}}};
+        state["device"]=QJsonObject{{"availableMemoryMB",810},{"hostname","private-host"}};
+        const auto safe=safeDiagnostics(state);const auto json=QJsonDocument(safe).toJson();QVERIFY(!json.contains("private-"));QVERIFY(!json.contains("password"));QVERIFY(!json.contains("events"));QCOMPARE(safe["active"].toInt(),1);
+    }
+    void repeatedFailuresDoNotFloodHistoryOrExposeRawData(){
+        Diagnostics diagnostics;for(int i=0;i<100;++i)diagnostics.fail(DataSource::Summary,IssueCode::SummaryKey);
+        const auto state=diagnostics.snapshot();QCOMPARE(state["issues"].toArray().size(),1);QCOMPARE(state["active"].toInt(),1);
+        const auto issue=state["issues"].toArray().first().toObject();QCOMPARE(issue["message"].toString(),QString("OpenAI key was rejected"));
+        const auto json=QJsonDocument(state).toJson();QVERIFY(!json.contains("password"));QVERIFY(!json.contains("sk-"));QVERIFY(!json.contains("account"));
+    }
+};
+QTEST_MAIN(LayoutTests)
+#include "layout-tests.moc"

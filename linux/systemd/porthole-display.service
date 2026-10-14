@@ -1,0 +1,11 @@
+[Unit]
+Description=Porthole SD-only panel bring-up
+After=local-fs.target systemd-udev-trigger.service pf-gadget.service
+ConditionPathExists=/boot/extlinux/extlinux.conf
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/lib/porthole/display-start
+TimeoutStartSec=45
+[Install]
+WantedBy=multi-user.target

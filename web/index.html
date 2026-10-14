@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="referrer" content="no-referrer">
+  <title>Porthole · Today at home</title>
+  <link rel="icon" href="assets/porthole.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="styles.css">
+  <script src="sample-data.js" defer></script>
+  <script src="dashboard.js" defer></script>
+</head>
+<body class="day-view today-view">
+  <div class="display" id="display">
+    <div class="notice clearfix" id="notice" role="status" aria-live="polite">
+      <span id="notice-text">Connecting to your dashboard…</span>
+      <button id="sample-button" class="text-button" hidden>View sample</button>
+      <a id="live-link" class="text-button" href="./" hidden>Use live data</a>
+    </div>
+
+    <div class="board clearfix" id="board" role="tabpanel" aria-labelledby="tab-today">
+    <div class="conditions" id="conditions">
+    <header class="masthead clearfix">
+      <div class="clock-block">
+        <div class="clock-line"><span id="clock">--:--</span><span class="meridiem" id="meridiem"></span></div>
+        <p class="date-label" id="date-label">Getting the local time…</p>
+      </div>
+      <div class="identity">
+        <div class="wordmark"><span class="porthole-mark" aria-hidden="true"></span>Porthole</div>
+        <p class="identity-caption">A little view of our days.</p>
+        <p class="time-zone" id="time-zone">Local time</p>
+      </div>
+    </header>
+
+    <section class="weather-strip clearfix" aria-label="Weather" id="weather" aria-busy="true">
+      <div class="weather-current clearfix">
+        <img id="weather-icon" class="weather-icon" src="assets/unknown.svg" alt="">
+        <div class="weather-temperature" id="weather-temperature">—</div>
+        <div class="weather-description"><h2 id="weather-location">Example City</h2><p id="weather-condition">Loading weather…</p><p class="weather-detail" id="weather-detail"></p></div>
+      </div>
+      <div class="forecast clearfix" id="forecast"></div>
+    </section>
+    </div>
+
+    <main class="workspace clearfix">
+      <section class="calendar-pane" id="calendar-pane" aria-labelledby="month-title" hidden>
+        <div class="section-heading clearfix">
+          <h1 id="month-title">Calendar</h1>
+          <nav class="month-controls" aria-label="Calendar month">
+            <button id="previous-month" class="arrow-button" aria-label="Previous month">‹</button>
+            <button id="today-button">Today</button>
+            <button id="next-month" class="arrow-button" aria-label="Next month">›</button>
+          </nav>
+        </div>
+        <table class="month-table" aria-labelledby="month-title" id="calendar-table" aria-busy="true">
+          <thead><tr><th scope="col">Sun</th><th scope="col">Mon</th><th scope="col">Tue</th><th scope="col">Wed</th><th scope="col">Thu</th><th scope="col">Fri</th><th scope="col">Sat</th></tr></thead>
+          <tbody id="month-days"></tbody>
+        </table>
+        <div class="calendar-foot clearfix">
+          <div class="legend" aria-label="Calendar groups"><span><i class="dot family" aria-hidden="true"></i>Family</span><span><i class="dot home" aria-hidden="true"></i>Home</span><span><i class="dot school" aria-hidden="true"></i>School</span></div>
+          <p id="calendar-status" class="source-status">Loading calendar…</p>
+        </div>
+      </section>
+
+      <aside class="agenda-pane" aria-labelledby="agenda-title">
+        <div class="agenda-heading clearfix"><h2 id="agenda-title">Today</h2></div>
+        <p class="agenda-caption" id="agenda-caption">The next few days, at a glance.</p>
+        <div class="agenda-list" id="agenda-list" tabindex="0" aria-label="Event list" aria-busy="true"><div class="empty-state"><p>Loading your calendar…</p></div></div>
+        <p class="day-hint" id="day-hint">Tap a day to take a closer look.</p>
+        <p class="agenda-status" id="agenda-status">Loading calendar…</p>
+      </aside>
+    </main>
+    </div>
+
+    <footer class="display-footer clearfix" id="display-footer">
+      <span id="weather-status">Waiting for forecast</span>
+      <button class="text-button refresh-button" id="refresh-button">Refresh <span aria-hidden="true">↻</span></button>
+      <nav class="view-tabs" role="tablist" aria-label="Dashboard views" id="view-tabs">
+        <button type="button" role="tab" id="tab-today" aria-selected="true" aria-controls="board" tabindex="0">Today</button>
+        <button type="button" role="tab" id="tab-tomorrow" aria-selected="false" aria-controls="board" tabindex="-1">Tomorrow</button>
+        <button type="button" role="tab" id="tab-calendar" aria-selected="false" aria-controls="board" tabindex="-1">Calendar</button>
+      </nav>
+    </footer>
+    <noscript><p class="no-script">Enable JavaScript to show your calendar and weather.</p></noscript>
+  </div>
+</body>
+</html>

@@ -14,3 +14,26 @@ usb-investigation*.json
 __pycache__/
 *.py[cod]
 .DS_Store
+
+# Private household profiles; publish only profile.example.json
+**/profile.json
+**/profile.local.json
+
+# Local builds, generated bundles and signing material
+/build/
+/cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+Testing/
+*.apk
+*.keystore
+*.jks
+*.pkg.tar.*
+*.img
+*.img.*
+*.bin
+*.tar
+*.tar.gz
+*.tar.xz
+*.log
+*.jsonl
