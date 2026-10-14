@@ -310,3 +310,13 @@ was then installed on the actual frame. The installer detected the missing windo
 restored both previous binaries exactly, removed the pending journal and restarted
 calendar, kiosk and rotation successfully. The failed sequence was retained to
 prevent automatic retries. No failed test release was published publicly.
+
+The first production release (2026.10.14.1) was published with a signed manifest,
+signature and app-only archive. The frame's unprivileged service fetched it through
+Wi-Fi, and the independent installer accepted it after startup/window checks.
+Both installed binaries matched the downloaded manifest. The private profile
+matched its prior provisioned value; saved iCloud login/calendar selection and
+OpenAI-key flags recovered, and the spending ledger retained nonzero history.
+All eleven application, network, update and timer services were active. Automatic
+checks were re-enabled after testing. No MAC/IP address or inbound listener was
+needed, and no private key or household configuration was published.

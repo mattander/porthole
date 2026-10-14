@@ -141,3 +141,10 @@ needed by its Python subprocesses; probes drop to the existing app identities
 using `setpriv` without a PAM session. Network address families remain disabled
 for the installer. The downloader has no capabilities. Core dumps are disabled
 for both services.
+
+On the verified frame, a private signed startup-failure fixture triggered automatic
+rollback, with both previous binaries matching readback and the pending journal
+removed. A subsequent production release was downloaded and installed over Wi-Fi;
+its binaries matched the signed manifest, and the private profile, saved account
+and key flags, and spending history were retained. No intentionally failed release
+was published. The installed configuration uses hourly automatic checks.
