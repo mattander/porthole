@@ -188,8 +188,12 @@ These offline tests cover signed plan tampering, bounded/injected names, foreign
 configuration, repeated/additive plans, ordinary release preservation, power loss
 between writes, restart recovery, corrupt backups and failed app health. Target
 verification additionally needs the once-only bootstrap and a real signed
-migration over Wi-Fi; application-only Wi-Fi updates have already been confirmed
-on the physical frame.
+migration over Wi-Fi. Both are now verified on the physical frame: release
+2026.10.15.2 installed the Google credential declaration and loaded its empty
+fallback while preserving the existing six-calendar iCloud selection, encrypted
+credentials, settings and spending history. This does not connect a Google
+account or install its provisioning helper. See the [bring-up results](../../docs/linux-sd-bringup.md#signed-credential-migration-over-wi-fi-october-15-2026)
+for the live check and its scope.
 
 ## Services and verification
 

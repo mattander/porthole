@@ -339,7 +339,7 @@ The checksum-covered credential migration bootstrap was transferred through the
 matched Linux USB maintenance console and installed on the verified SD root and
 pinned kernel. The existing key and updater settings were retained. The updater,
 check timer, calendar service and kiosk were active afterwards. This establishes
-bootstrap installation; a signed schema-2 migration over Wi-Fi remains to be tested.
+bootstrap installation; the signed schema-2 Wi-Fi check is recorded below.
 
 ### Calendar selection and touch controls (October 15, 2026)
 
@@ -357,3 +357,30 @@ frame reboot restored the same six-calendar selection, checked by a digest of
 the selected URLs without recording calendar names or event data. The old loss
 of selection was not reproduced after reselection; its original cause remains
 unconfirmed. No speculative backend restoration change was made.
+
+### Signed credential migration over Wi-Fi (October 15, 2026)
+
+Release 2026.10.15.2 contains the same tested native binaries as 2026.10.15.1
+and a signed schema-2 plan adding `porthole-google`. Before publication, the
+installed updater matched the reviewed migration-capable source, the managed
+credential drop-in was absent, and the original calendar unit did not declare
+Google. A fresh private preservation baseline was taken after calendar reselection.
+The existing enrolled public key verified the release signature; anonymous latest
+manifest and versioned asset downloads matched the locally signed bytes.
+
+The frame downloaded and installed the release through its Wi-Fi updater. USB
+maintenance triggered the check and read back results; it did not transfer the
+release payload or write the new credential configuration. Installed binary hashes
+and the accepted sequence matched the manifest. The root-owned, mode-0644
+`credentials.conf` contained exactly the Google credential declaration and empty
+JSON fallback, and the restarted calendar service received that empty fallback.
+
+Existing encrypted credentials, household profile, saved Wi-Fi files, appearance
+preferences, boot setting, enrolled key, updater settings and base calendar unit
+passed preservation checks. Briefing settings and spending history were retained.
+All six selected iCloud calendars restored unchanged without a selection request;
+Google remained unconfigured. The updater, timer, calendar and kiosk services were
+active with no pending rollback journal. The eighteen updater/migration host tests
+also passed; native binaries reused the matching eleven-suite final-build evidence.
+This live check covers successful migration installation; migration failure and
+interruption recovery remain covered by the offline transaction tests.
