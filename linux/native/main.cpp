@@ -187,7 +187,23 @@ public:
         else if(qApp->arguments().contains("--light"))dark=false;
         applyTheme(dark);
         if(sample){sampleData();if(qApp->arguments().contains("--briefing-stress"))briefing->updateBriefing({{"enabled",true},{"text",QString(400,'W')},{"status","Preview"}});
-            if(qApp->arguments().contains("--briefing-long"))briefing->updateBriefing({{"enabled",true},{"text","Sample: There is a special lunch day tomorrow and a school event at 10 AM, so check the calendar for any items to bring. Saturday’s morning plans overlap; check who is handling each commitment. Tomorrow’s forecast is cool with rain, which may affect outdoor plans and clothing choices. Sunday’s family visit starts at noon; consider any preparation listed in the event before leaving."},{"status","Preview"}});}else{updateClock();changeView(0);renderStatus();QTimer::singleShot(0,this,[this]{refreshWeather();});}
+            if(qApp->arguments().contains("--briefing-long"))briefing->updateBriefing({{"enabled",true},{"text","Sample: There is a special lunch day tomorrow and a school event at 10 AM, so check the calendar for any items to bring. Saturday’s morning plans overlap; check who is handling each commitment. Tomorrow’s forecast is cool with rain, which may affect outdoor plans and clothing choices. Sunday’s family visit starts at noon; consider any preparation listed in the event before leaving."},{"status","Preview"}});
+            if(qApp->arguments().contains("--briefing-school-preview")){
+                const QJsonArray parts{
+                    QJsonObject{{"text","Sample: Friday brings "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","Alex’s provided pasta lunch"},{"calendar_ids",QJsonArray{"sample-school-a"}}},
+                    QJsonObject{{"text"," and "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","Sam’s picture day"},{"calendar_ids",QJsonArray{"sample-school-b"}}},
+                    QJsonObject{{"text",". "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","The library pickup is tomorrow, 8 AM–6 PM"},{"calendar_ids",QJsonArray{"sample-home"}}},
+                    QJsonObject{{"text","."},{"calendar_ids",QJsonArray{}}}};
+                QString copy;for(const auto &part:parts)copy+=part.toObject()["text"].toString();
+                briefing->updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",QJsonArray{
+                    QJsonObject{{"id","sample-school-a"},{"name","School A"},{"colour","#FFFF00"}},
+                    QJsonObject{{"id","sample-school-b"},{"name","School B"},{"colour","#AF52DE"}},
+                    QJsonObject{{"id","sample-home"},{"name","Home"},{"colour","#3388FF"}}}}});
+            }
+        }else{updateClock();changeView(0);renderStatus();QTimer::singleShot(0,this,[this]{refreshWeather();});}
     }
 protected:
     void resizeEvent(QResizeEvent *e) override {

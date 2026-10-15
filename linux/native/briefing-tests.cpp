@@ -68,7 +68,9 @@ private slots:
             QVERIFY(instructions.contains("household context"));QVERIFY(instructions.contains("lunch"));QVERIFY(instructions.contains("weekday",Qt::CaseInsensitive));QVERIFY(instructions.contains("weekend",Qt::CaseInsensitive));
             QVERIFY(instructions.contains(hour==6?"Morning:":hour==12?"Midday:":"Evening, starting at 4pm:"));
             const auto segments=prompt["text"].toObject()["format"].toObject()["schema"].toObject()["properties"].toObject()["segments"].toObject();
-            QCOMPARE(segments["maxItems"].toInt(),BriefingSegmentLimit);QCOMPARE(segments["items"].toObject()["properties"].toObject()["event_refs"].toObject()["maxItems"].toInt(),BriefingReferencesPerSegmentLimit);
+            QCOMPARE(segments["maxItems"].toInt(),BriefingSegmentLimit);QCOMPARE(segments["items"].toObject()["properties"].toObject()["event_refs"].toObject()["maxItems"].toInt(),BriefingGenerationReferencesPerSegmentLimit);
+            QCOMPARE(segments["items"].toObject()["properties"].toObject()["text"].toObject()["maxLength"].toInt(),BriefingGenerationCharacterLimit);
+            QVERIFY(instructions.contains("140–200"));QVERIFY(instructions.contains("person's name"));QVERIFY(instructions.contains("Split different events"));
             QVERIFY(prompt["input"].toString().contains("Prioritize school lunches"));
         }
         QCOMPARE(briefingPeriod(QDateTime(QDate(2026,10,14),QTime(15,59),QTimeZone("America/New_York"))),BriefingPeriod::Midday);
@@ -102,7 +104,7 @@ private slots:
     void requestSourcesArePrivateCapturedAndLocallyRefreshed(){
         QTemporaryDir directory;const auto path=directory.filePath("state");FixtureNetwork network;network.hold=true;
         auto original=events().first();original.calendarId="source-a";original.colour="#123456";
-        network.resultSegments={QJsonObject{{"text","<b>Soccer</b> is at 10."},{"event_refs",QJsonArray{"e1","e1"}}}};
+        network.resultSegments={QJsonObject{{"text","<b>Soccer</b> is at 10."},{"event_refs",QJsonArray{"e1"}}}};
         BriefingEngine engine(path,"sk-"+QByteArray(40,'a'),nullptr,&network,[]{return now();});
         engine.configure(true,"",100);engine.calendarData({original},now());engine.weatherData(weather());QTRY_COMPARE(network.requests,1);QVERIFY(network.pending);
         const auto input=network.sent["input"].toString();QVERIFY(input.contains("\"event_ref\":\"e1\""));QVERIFY(!input.contains("private-id"));QVERIFY(!input.contains("source-a"));QVERIFY(!input.contains("#123456"));
@@ -123,8 +125,8 @@ private slots:
             sourceEvents.append(Event{"private-"+QString::number(index),"Event "+QString::number(index),QString(),calendarName,now().addSecs(3600+index),now().addSecs(7200+index),false,id,"#123456"});
         }
         for(int segment=0;segment<BriefingSegmentLimit;++segment){
-            QJsonArray references;for(int offset=0;offset<BriefingReferencesPerSegmentLimit;++offset)references.append("e"+QString::number((segment*BriefingReferencesPerSegmentLimit+offset)%SourceCount+1));
-            network.resultSegments.append(QJsonObject{{"text",emoji.repeated(12)},{"event_refs",references}});
+            const QJsonArray references{"e"+QString::number(segment+1)};
+            network.resultSegments.append(QJsonObject{{"text",emoji.repeated(7)},{"event_refs",references}});
         }
         qint64 spent=0;QJsonObject generated;
         {
@@ -141,6 +143,8 @@ private slots:
         QTRY_VERIFY(!engine.snapshot()["text"].toString().isEmpty());
         const auto previous=engine.snapshot()["text"].toString();QVERIFY(!previous.isEmpty());
         QList<QJsonArray> invalid{
+            {QJsonObject{{"text",QString(BriefingGenerationCharacterLimit+1,'A')},{"event_refs",QJsonArray{}}}},
+            {QJsonObject{{"text","Two events in one phrase"},{"event_refs",QJsonArray{"e1","e1"}}}},
             {QJsonObject{{"text","Unknown"},{"event_refs",QJsonArray{"e999"}}}},
             {QJsonObject{{"text","e"},{"event_refs",QJsonArray{"e1"}}},QJsonObject{{"text",QString(QChar(0x0301))},{"event_refs",QJsonArray{}}}},
             {QJsonObject{{"text",QString(300,'A')},{"event_refs",QJsonArray{}}},QJsonObject{{"text",QString(101,'B')},{"event_refs",QJsonArray{}}}},
@@ -152,6 +156,23 @@ private slots:
             ++expected;
             network.resultSegments=reply;fixtureTime=fixtureTime.addSecs(301);engine.calendarData(events(),now());engine.refresh(true);QTRY_COMPARE(network.requests,expected);QTRY_VERIFY(engine.snapshot()["status"].toString().contains("could not be used"));QCOMPARE(engine.snapshot()["text"].toString(),previous);
         }
+    }
+    void separateSchoolPhrasesKeepTheirOwnCalendarSources(){
+        QTemporaryDir directory;FixtureNetwork network;
+        auto first=events().first();first.calendarId="school-yellow";first.calendar="School A";first.colour="#FFFF00";
+        auto second=first;second.uid="second";second.calendarId="school-purple";second.calendar="School B";second.colour="#AF52DE";second.start=first.start.addSecs(60);
+        network.resultSegments={
+            QJsonObject{{"text","Friday brings "},{"event_refs",QJsonArray{}}},
+            QJsonObject{{"text","Alex’s provided pasta lunch"},{"event_refs",QJsonArray{"e1"}}},
+            QJsonObject{{"text"," and "},{"event_refs",QJsonArray{}}},
+            QJsonObject{{"text","Sam’s picture day"},{"event_refs",QJsonArray{"e2"}}},
+            QJsonObject{{"text","."},{"event_refs",QJsonArray{}}}};
+        BriefingEngine engine(directory.filePath("state"),"sk-"+QByteArray(40,'a'),nullptr,&network,[]{return now();});
+        engine.configure(true,"",100);engine.calendarData({first,second},now());engine.weatherData(weather());QTRY_COMPARE(network.requests,1);QTRY_VERIFY(!engine.snapshot()["text"].toString().isEmpty());
+        const auto snapshot=engine.snapshot();const auto parts=snapshot["segments"].toArray();
+        QCOMPARE(parts[1].toObject()["calendar_ids"].toArray(),QJsonArray{"school-yellow"});
+        QCOMPARE(parts[3].toObject()["calendar_ids"].toArray(),QJsonArray{"school-purple"});
+        QCOMPARE(snapshot["calendar_colours"].toArray().size(),2);
     }
     void wakingWindowAndDstBoundaries(){
         for(const auto date:{QDate(2026,3,8),QDate(2026,11,1)}){
@@ -299,7 +320,7 @@ private slots:
         BriefingEngine restored(path,{},nullptr,&network,[]{return now();});QCOMPARE(restored.snapshot()["spentMicros"].toInteger(),spent);QCOMPARE(restored.snapshot()["attemptsToday"].toInt(),1);
     }
     void longResponsesAndPhysicalFit(){
-        QTemporaryDir directory;FixtureNetwork network;network.result=QString(BriefingCharacterLimit,'W');
+        QTemporaryDir directory;FixtureNetwork network;network.result=QString(BriefingGenerationCharacterLimit,'W');
         BriefingEngine engine(directory.filePath("state"),"sk-"+QByteArray(40,'c'),nullptr,&network,[]{return now();});engine.configure(true,"",100);engine.calendarData(events(),now());engine.weatherData(weather());QTRY_COMPARE(network.requests,1);QTRY_VERIFY(!engine.snapshot()["text"].toString().isEmpty());QVERIFY(engine.snapshot()["text"].toString().size()<=BriefingCharacterLimit);
         BriefingWidget widget;widget.show();
         for(const auto size:{QSize(620,130),QSize(744,130),QSize(300,130),QSize(150,130)}){
