@@ -21,6 +21,29 @@ CalendarClient::CalendarClient(QObject *parent,bool mock,QString socketPath):QOb
     auto *timer=new QTimer(this);connect(timer,&QTimer::timeout,this,&CalendarClient::requestStatus);timer->start(2000);
     QTimer::singleShot(0,this,&CalendarClient::requestStatus);
 }
+void CalendarClient::eventDetails(const Event &event,std::function<void(std::optional<Event>)> complete){
+    if(preview){complete(event);return;}
+    if(event.detailsReference.isEmpty()){complete(std::nullopt);return;}
+    auto *socket=new QLocalSocket(this);auto state=QSharedPointer<PendingRead>::create();
+    auto *timer=new QTimer(socket);timer->setSingleShot(true);timer->start(5000);
+    auto finish=[socket,state,complete](std::optional<Event> result){
+        if(state->completed)return;
+        state->completed=true;state->bytes.fill('\0');state->bytes.clear();socket->abort();socket->deleteLater();complete(std::move(result));
+    };
+    connect(timer,&QTimer::timeout,this,[finish]{finish(std::nullopt);});
+    connect(socket,&QLocalSocket::errorOccurred,this,[finish](auto){finish(std::nullopt);});
+    connect(socket,&QLocalSocket::connected,this,[socket,event]{socket->write(QJsonDocument(QJsonObject{{"type","eventDetails"},{"reference",event.detailsReference}}).toJson(QJsonDocument::Compact)+'\n');});
+    connect(socket,&QLocalSocket::readyRead,this,[socket,state,finish,event]{
+        if(state->completed)return;
+        state->bytes+=socket->readAll();if(state->bytes.size()>65536){finish(std::nullopt);return;}
+        const auto end=state->bytes.indexOf('\n');if(end<0)return;
+        QJsonParseError error;const auto reply=QJsonDocument::fromJson(state->bytes.left(end),&error).object();
+        if(error.error!=QJsonParseError::NoError||!reply["ok"].toBool()||!reply["event"].isObject()){finish(std::nullopt);return;}
+        const auto parsed=calendarEventFromJson(reply["event"].toObject());
+        finish(parsed&&parsed->detailsReference==event.detailsReference&&reply["event"].toObject()["description"].isString()?parsed:std::nullopt);
+    });
+    socket->connectToServer(endpoint);
+}
 void CalendarClient::send(QJsonObject request,bool status){
     if(preview)return;
     if(status&&polling)return;

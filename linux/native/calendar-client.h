@@ -2,6 +2,7 @@
 #include "data.h"
 #include <QObject>
 #include <QJsonObject>
+#include <functional>
 
 class CalendarClient:public QObject {
     Q_OBJECT
@@ -10,6 +11,7 @@ public:
     void connectAccount(const QString &account,const QByteArray &password,bool remember=true);
     void selectCalendars(const QList<Calendar> &calendars);
     void fetch(const QList<Calendar> &,QDate month);
+    void eventDetails(const Event &event,std::function<void(std::optional<Event>)> complete);
     void forgetAccount();
     void selectGoogleCalendars(const QList<Calendar> &calendars);
     void forgetGoogleAccount();

@@ -4,6 +4,7 @@
 #include <QRegularExpression>
 #include <QSet>
 #include <QTimeZone>
+#include <QTextBoundaryFinder>
 #include <QXmlStreamReader>
 #include <libical/ical.h>
 #include <algorithm>
@@ -97,13 +98,30 @@ QString calendarIdentity(const Calendar &calendar) {
         calendar.url.toEncoded(QUrl::FullyEncoded), QCryptographicHash::Sha256).toHex());
 }
 
+QString boundedEventDescription(const QString &value){
+    if(value.size()<=4096)return value;
+    QTextBoundaryFinder boundary(QTextBoundaryFinder::Grapheme,value);boundary.setPosition(4095);
+    if(!boundary.isAtBoundary())boundary.toPreviousBoundary();return value.left(boundary.position())+QChar(0x2026);
+}
+QString calendarEventReference(const Event &event){
+    const auto bytes=event.uid.toUtf8()+'\0'+event.calendarId.toUtf8()+'\0'+event.start.toUTC().toString(Qt::ISODate).toUtf8()+'\0'+event.end.toUTC().toString(Qt::ISODate).toUtf8();
+    return QString::fromLatin1(QCryptographicHash::hash(bytes,QCryptographicHash::Sha256).toHex());
+}
+QJsonObject calendarEventDetailsJson(const QList<Event> &events,const QString &reference){
+    if(!CalendarIdPattern.match(reference).hasMatch())return {{"ok",false}};
+    for(const auto &event:events)if(calendarEventReference(event)==reference){
+        auto value=calendarEventJson(event);value["description"]=boundedEventDescription(event.description);
+        return {{"ok",true},{"event",value}};
+    }
+    return {{"ok",false}};
+}
 QJsonObject calendarEventJson(const Event &event){
     QString id;if(CalendarIdPattern.match(event.calendarId).hasMatch())id=event.calendarId;
     return {{"uid",event.uid.left(240)},{"title",event.title},{"location",event.location},
             {"calendar",event.calendar},{"start",event.start.toString(Qt::ISODate)},
             {"end",event.end.toString(Qt::ISODate)},{"allDay",event.allDay},
             {"calendarId",id},
-            {"colour",canonicalCalendarColour(event.colour)}};
+            {"colour",canonicalCalendarColour(event.colour)},{"detailsRef",calendarEventReference(event)}};
 }
 
 std::optional<Event> calendarEventFromJson(const QJsonObject &value){
@@ -112,10 +130,13 @@ std::optional<Event> calendarEventFromJson(const QJsonObject &value){
     if(!start.isValid()||!end.isValid()||end<start)return std::nullopt;
     const auto candidateId=value["calendarId"].toString();
     QString id;if(CalendarIdPattern.match(candidateId).hasMatch())id=candidateId;
+    if(value.contains("description")&&(!value["description"].isString()||value["description"].toString().size()>4096))return std::nullopt;
+    const auto reference=value["detailsRef"].toString();
+    if(value.contains("detailsRef")&&(!value["detailsRef"].isString()||!CalendarIdPattern.match(reference).hasMatch()))return std::nullopt;
     return Event{value["uid"].toString().left(240),value["title"].toString().left(500),
                  value["location"].toString().left(500),value["calendar"].toString().left(100),
                  start,end,value["allDay"].toBool(),id,
-                 canonicalCalendarColour(value["colour"].toString())};
+                 canonicalCalendarColour(value["colour"].toString()),value["description"].toString(),reference};
 }
 
 bool sameCalendarSelection(const QList<Calendar> &left,const QList<Calendar> &right){
@@ -194,6 +215,7 @@ QList<Event> parseExpandedCalendar(const QByteArray &bytes, const QString &calen
         event.title = textProperty(item, ICAL_SUMMARY_PROPERTY).left(240);
         if (event.title.isEmpty()) event.title = "Untitled event";
         event.location = textProperty(item, ICAL_LOCATION_PROPERTY).left(180);
+        if(const auto *description=icalcomponent_get_description(item))event.description=boundedEventDescription(QString::fromUtf8(description));
         event.calendar = calendar.left(100);
         events << event;
         if (events.size() > 5000) throw std::runtime_error("Too many calendar events");
@@ -206,5 +228,5 @@ bool Event::onDate(QDate date) const {
     return date >= start.date() && date <= last;
 }
 QString Event::timeLabel() const {
-    return allDay ? QString("All day") : start.toString("h:mm AP");
+    return allDay ? QString("All day") : start.toTimeZone(configuredZone()).toString("h:mm AP");
 }

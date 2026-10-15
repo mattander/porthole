@@ -53,7 +53,8 @@ private slots:
             const int bottom=gear->geometry().bottom();QCOMPARE(updated->geometry().bottom(),bottom);
             for(auto *button:footer.findChildren<QPushButton*>()){QCOMPARE(button->geometry().bottom(),bottom);QVERIFY(footer.rect().contains(button->geometry()));QCOMPARE(button->height(),48);}
         }
-        auto *tomorrow=footer.findChild<QPushButton*>("viewButton1");QTest::mouseClick(tomorrow,Qt::LeftButton);QCOMPARE(views.count(),1);QCOMPARE(views.first().first().toInt(),1);
+        QCOMPARE(footer.findChildren<QPushButton*>().size(),2);auto *calendar=footer.findChild<QPushButton*>("calendarButton");QVERIFY(calendar);QTest::mouseClick(calendar,Qt::LeftButton);QCOMPARE(views.count(),1);QCOMPARE(views.first().first().toInt(),2);
+        footer.setView(2);QVERIFY(calendar->isChecked());footer.setView(0);QVERIFY(!calendar->isChecked());
         auto *gear=footer.findChild<QPushButton*>("settingsButton");QTest::mouseClick(gear,Qt::LeftButton);QCOMPARE(settings.count(),1);
         footer.setIssueCount(2);QVERIFY(gear->accessibleName().contains("2"));
     }

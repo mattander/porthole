@@ -18,6 +18,8 @@ struct Event {
     bool allDay = false;
     QString calendarId = {};
     QString colour = {};
+    QString description = {};
+    QString detailsReference = {};
     bool onDate(QDate date) const;
     QString timeLabel() const;
 };
@@ -34,5 +36,8 @@ QString calProperty(const QString &name);
 QString canonicalCalendarColour(const QString &colour);
 QString calendarIdentity(const Calendar &calendar);
 QJsonObject calendarEventJson(const Event &event);
+QString calendarEventReference(const Event &event);
+QString boundedEventDescription(const QString &value);
+QJsonObject calendarEventDetailsJson(const QList<Event> &events,const QString &reference);
 std::optional<Event> calendarEventFromJson(const QJsonObject &value);
 bool sameCalendarSelection(const QList<Calendar> &left,const QList<Calendar> &right);

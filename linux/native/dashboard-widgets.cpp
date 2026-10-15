@@ -19,9 +19,9 @@ QString checked(QDateTime value){
     return value.toString(value.date()==QDateTime::currentDateTimeUtc().toTimeZone(zone).date()?"h:mm AP":"ddd h:mm AP");
 }
 }
-ClockFace::ClockFace(QWidget *parent):QWidget(parent){setObjectName("clockFace");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(164);}
+ClockFace::ClockFace(QWidget *parent):QWidget(parent){setObjectName("clockFace");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(124);}
 void ClockFace::setTime(QTime value){digits=QString("%1:%2").arg(value.hour()%12?value.hour()%12:12).arg(value.minute(),2,10,QChar('0'));period=value.hour()<12?"AM":"PM";setAccessibleName(digits+" "+period);update();}
-void ClockFace::setPortrait(bool value){pixels=value?118:160;setFixedHeight(pixels+4);update();}
+void ClockFace::setPortrait(bool value){pixels=value?118:120;setFixedHeight(pixels+4);update();}
 QFont ClockFace::periodFont()const{return pixelFont(pixels<160?30:35);}
 QFont ClockFace::timeFont()const{
     auto result=pixelFont(pixels);result.setLetterSpacing(QFont::AbsoluteSpacing,-6);
@@ -82,19 +82,36 @@ ForecastStrip::ForecastStrip(QWidget *parent):QWidget(parent){
     }
 }
 void ForecastStrip::setForecast(const QList<ForecastDay> &days){for(int i=0;i<3;++i){const bool present=i<days.size();dates[i]->setText(present?days[i].date.toString("ddd, MMM d"):"—");icons[i]->setCode(present?days[i].code:-1);temperatures[i]->setText(present?QString("%1° / %2°").arg(days[i].high).arg(days[i].low):"— / —");conditions[i]->setText(present?weatherCondition(days[i].code):"Unavailable");}}
-GearButton::GearButton(QWidget *parent):QPushButton(parent){setObjectName("settingsButton");setFixedSize(48,48);setFocusPolicy(Qt::NoFocus);setAccessibleName("Settings");setToolTip("Settings");}
+GearButton::GearButton(QWidget *parent):QPushButton(parent){setObjectName("settingsButton");setFixedSize(48,48);setAccessibleName("Settings");setToolTip("Settings");}
 void GearButton::setIssueCount(int count){issues=qBound(0,count,99);setAccessibleName(issues?QString("Settings · %1 issues").arg(issues):"Settings");setToolTip(issues?QString("Settings · %1 issues need attention").arg(issues):"Settings");update();}
 void GearButton::paintEvent(QPaintEvent *event){
     QPushButton::paintEvent(event);QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.translate(13,13);p.scale(22.0/24,22.0/24);p.setPen(QPen(palette().color(QPalette::ButtonText),1.6,Qt::SolidLine,Qt::RoundCap,Qt::RoundJoin));p.setBrush(Qt::NoBrush);
     QPolygonF points;points<<QPointF(9.5,3)<<QPointF(9.1,5.1)<<QPointF(7.3,6.1)<<QPointF(5.3,5.3)<<QPointF(2.8,9.6)<<QPointF(4.5,10.9)<<QPointF(4.5,13.1)<<QPointF(2.8,14.4)<<QPointF(5.3,18.7)<<QPointF(7.3,17.9)<<QPointF(9.1,18.9)<<QPointF(9.5,21)<<QPointF(14.5,21)<<QPointF(14.9,18.9)<<QPointF(16.7,17.9)<<QPointF(18.7,18.7)<<QPointF(21.2,14.4)<<QPointF(19.5,13.1)<<QPointF(19.5,10.9)<<QPointF(21.2,9.6)<<QPointF(18.7,5.3)<<QPointF(16.7,6.1)<<QPointF(14.9,5.1)<<QPointF(14.5,3);p.drawPolygon(points);p.drawEllipse(QPointF(12,12),3.1,3.1);
     if(issues){p.resetTransform();p.setPen(Qt::NoPen);p.setBrush(QColor("#ad622b"));p.drawEllipse(QRectF(33,2,13,13));p.setPen(Qt::white);p.setFont(pixelFont(9));p.drawText(QRectF(33,2,13,13),Qt::AlignCenter,QString::number(issues));}
 }
+CalendarButton::CalendarButton(QWidget *parent):QPushButton(parent){setObjectName("calendarButton");setFixedSize(48,48);setCheckable(true);setAccessibleName("Calendar");setToolTip("Calendar");}
+void CalendarButton::paintEvent(QPaintEvent *event){
+    QPushButton::paintEvent(event);QPainter p(this);p.setRenderHint(QPainter::Antialiasing);p.translate(12,12);
+    p.setPen(QPen(palette().color(isChecked()?QPalette::HighlightedText:QPalette::ButtonText),1.8,Qt::SolidLine,Qt::RoundCap));p.setBrush(Qt::NoBrush);
+    p.drawRoundedRect(QRectF(2,4,20,18),2,2);p.drawLine(QPointF(2,10),QPointF(22,10));p.drawLine(QPointF(7,1),QPointF(7,6));p.drawLine(QPointF(17,1),QPointF(17,6));
+    for(int y:{14,18})for(int x:{7,12,17})p.drawPoint(QPointF(x,y));
+}
+AgendaDays::AgendaDays(QWidget *parent):QWidget(parent){
+    setObjectName("agendaDays");auto *row=new QHBoxLayout(this);row->setContentsMargins(0,0,0,0);row->setSpacing(12);
+    const QStringList names{"Today","Tomorrow"};
+    for(int index=0;index<2;++index){
+        days[index]=new QPushButton(names[index],this);days[index]->setObjectName("agendaDayTab");days[index]->setProperty("day",index);days[index]->setAccessibleName(names[index]);days[index]->setCheckable(true);days[index]->setMinimumHeight(56);days[index]->setFont(interfaceFont(30));
+        row->addWidget(days[index]);connect(days[index],&QPushButton::clicked,this,[this,index]{setView(index);emit viewRequested(index);});
+    }
+    row->addStretch();setView(0);
+}
+void AgendaDays::setView(int view){for(int index=0;index<2;++index)days[index]->setChecked(index==view);}
 DashboardFooter::DashboardFooter(QWidget *parent):QWidget(parent){
     setObjectName("dashboardFooter");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(63);
     auto *root=new QVBoxLayout(this);root->setContentsMargins(0,0,0,0);root->setSpacing(14);auto *line=new QFrame;line->setFrameShape(QFrame::HLine);line->setFixedHeight(1);root->addWidget(line);
     auto *row=new QHBoxLayout;row->setSpacing(8);updated=text("",12,true);updated->setObjectName("lastUpdated");updated->setWordWrap(true);updated->setAlignment(Qt::AlignLeft|Qt::AlignBottom);updated->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Preferred);row->addWidget(updated,1,Qt::AlignBottom);
-    const QStringList names{"Today","Tomorrow","Calendar"};for(int i=0;i<3;++i){tabs[i]=new QPushButton(names[i]);tabs[i]->setObjectName("viewButton"+QString::number(i));tabs[i]->setFont(pixelFont(16));tabs[i]->setFixedHeight(48);tabs[i]->setCheckable(true);tabs[i]->setFocusPolicy(Qt::NoFocus);row->addWidget(tabs[i]);connect(tabs[i],&QPushButton::clicked,this,[this,i]{emit viewRequested(i);});}
+    calendar=new CalendarButton;row->addWidget(calendar);connect(calendar,&QPushButton::clicked,this,[this]{emit viewRequested(2);});
     gear=new GearButton;row->addWidget(gear);connect(gear,&QPushButton::clicked,this,&DashboardFooter::settingsRequested);root->addLayout(row);setView(0);setUpdateTimes({},{},{});
 }
-void DashboardFooter::setView(int view){for(int i=0;i<3;++i)tabs[i]->setChecked(i==view);}
+void DashboardFooter::setView(int view){calendar->setChecked(view==2);}
 void DashboardFooter::setUpdateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){updated->setText(QString("%1Last updated: calendars %2 · weather %3%4 · summary %5").arg(sample?"Sample · ":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));}

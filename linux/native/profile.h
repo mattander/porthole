@@ -36,6 +36,7 @@ const HouseholdProfile &householdProfile();
 void setHouseholdProfile(const HouseholdProfile &profile);
 QTimeZone configuredZone();
 std::optional<QUrl> weatherForecastUrl(const HouseholdProfile &profile);
+std::optional<QUrl> weatherRainUrl(const HouseholdProfile &profile);
 QString profileRevision(const HouseholdProfile &profile);
 std::variant<HouseholdProfile,ProfileError> loadProfile(const QString &path);
 bool saveProfile(const QString &path,const HouseholdProfile &profile);
