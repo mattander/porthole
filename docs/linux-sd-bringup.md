@@ -320,3 +320,40 @@ OpenAI-key flags recovered, and the spending ledger retained nonzero history.
 All eleven application, network, update and timer services were active. Automatic
 checks were re-enabled after testing. No MAC/IP address or inbound listener was
 needed, and no private key or household configuration was published.
+
+### Wall-power startup and migration bootstrap (October 15, 2026)
+
+The frame appeared on the Mac as an Allwinner USB download gadget exporting
+only its SD card. The FAT boot state showed automatic mode, an unconfirmed
+previous Linux start, and the current USB disk selection. Inspection of the
+installed boot script confirmed that this fallback tests USB host configuration,
+not dashboard health. A full power disconnect returned the next start to Linux.
+The dashboard, calendar service, and updater were active, with app release
+2026.10.14.7 installed. The original `uEnv.txt` was backed up privately on SD;
+`pf_mode=linux` was written atomically and read back for standalone wall-power
+operation. A subsequent clean Linux reboot returned to the native dashboard with
+the preference retained, the pinned kernel unchanged, and the calendar, kiosk,
+updater and check timer active. A physical wall-power-only start remains untested.
+
+The checksum-covered credential migration bootstrap was transferred through the
+matched Linux USB maintenance console and installed on the verified SD root and
+pinned kernel. The existing key and updater settings were retained. The updater,
+check timer, calendar service and kiosk were active afterwards. This establishes
+bootstrap installation; a signed schema-2 migration over Wi-Fi remains to be tested.
+
+### Calendar selection and touch controls (October 15, 2026)
+
+Release 2026.10.15.1 installed over Wi-Fi, with both native binary hashes matching
+the signed release. It replaces the calendar picker's small item check indicators
+with full-row checkbox controls and enlarges checkbox indicators throughout the
+app. Native UI tests cover text, indicator and blank-row taps, keyboard operation,
+disabled controls and the selection limit; all eleven native test suites passed.
+
+Before reselection, the live backend reported a remembered, authenticated iCloud
+account with seven available calendars but no selected calendars. After the owner
+saved six calendars using the new picker, the service reported a remembered
+selection and no selection request. Both a calendar-service restart and a clean
+frame reboot restored the same six-calendar selection, checked by a digest of
+the selected URLs without recording calendar names or event data. The old loss
+of selection was not reproduced after reselection; its original cause remains
+unconfirmed. No speculative backend restoration change was made.
