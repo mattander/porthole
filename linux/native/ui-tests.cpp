@@ -25,6 +25,29 @@ class SettingsTests:public QObject {
     Q_OBJECT
 private slots:
     void initTestCase(){QVERIFY(configureInterfaceTypography());QCOMPARE(QFontInfo(QApplication::font()).family(),QString("Poppins"));}
+    void checkboxesToggleFromTheirLabelAndEmptyRowSpaceExactlyOnce(){
+        TouchCheckBox box("A calendar or setting");box.resize(620,56);box.show();QTest::qWait(10);QSignalSpy changes(&box,&QCheckBox::toggled);
+        for(const auto point:{QPoint(12,28),QPoint(120,28),QPoint(610,28)}){
+            const bool previous=box.isChecked();const auto count=changes.count();QTest::mouseClick(&box,Qt::LeftButton,Qt::NoModifier,point);
+            QCOMPARE(box.isChecked(),!previous);QCOMPARE(changes.count(),count+1);
+        }
+        box.setFocus();const auto count=changes.count();QTest::keyClick(&box,Qt::Key_Space);QCOMPARE(changes.count(),count+1);
+        box.setEnabled(false);QTest::mouseClick(&box,Qt::LeftButton,Qt::NoModifier,QPoint(120,28));QCOMPARE(changes.count(),count+1);
+    }
+    void calendarPickerRowsPreserveIdentityAndEnforceSelectionLimits(){
+        QList<Calendar> available;for(int i=0;i<18;++i)available.append(Calendar{QUrl("googlecalendar:/fixture-"+QString::number(i)),i==0?QString("School & lunch"):QString("Calendar %1").arg(i),"#FFFF00"});
+        for(const auto size:{QSize(1280,800),QSize(800,1280)}){
+            CalendarPicker picker(available,{available[1]});picker.resize(size);picker.show();QTest::qWait(10);
+            const auto rows=picker.findChildren<QCheckBox*>();QCOMPARE(rows.size(),18);QVERIFY(rows[1]->isChecked());QVERIFY(!rows[0]->isChecked());QCOMPARE(rows[0]->accessibleName(),QString("School & lunch"));
+            for(auto *row:rows)QVERIFY(row->height()>=56);
+            QSignalSpy changes(rows[0],&QCheckBox::toggled);QTest::mouseClick(rows[0],Qt::LeftButton,Qt::NoModifier,QPoint(110,28));QCOMPARE(changes.count(),1);QVERIFY(rows[0]->isChecked());
+            QTest::mouseClick(rows[0],Qt::LeftButton,Qt::NoModifier,QPoint(rows[0]->width()-8,28));QCOMPARE(changes.count(),2);QVERIFY(!rows[0]->isChecked());
+            auto *buttons=picker.findChild<QDialogButtonBox*>();QVERIFY(buttons);auto *ok=buttons->button(QDialogButtonBox::Ok);QVERIFY(ok->isEnabled());
+            rows[1]->setChecked(false);QVERIFY(!ok->isEnabled());for(int i=0;i<16;++i)rows[i]->setChecked(true);QVERIFY(ok->isEnabled());rows[16]->setChecked(true);QVERIFY(!ok->isEnabled());rows[16]->setChecked(false);
+            QCOMPARE(picker.chosenCalendars().size(),16);QCOMPARE(picker.chosenCalendars().first().url,available.first().url);
+            QTest::mouseClick(buttons->button(QDialogButtonBox::Cancel),Qt::LeftButton);QCOMPARE(picker.result(),int(QDialog::Rejected));
+        }
+    }
     void fontLicenceIsReadableOnTheFrame(){
         QWidget parent;parent.resize(800,1280);WifiController wifi(nullptr,true);SettingsPane pane(&wifi,{},&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(2);
         QTimer::singleShot(0,&pane,[&]{
