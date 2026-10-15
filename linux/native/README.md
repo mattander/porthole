@@ -165,9 +165,13 @@ The briefing returns bounded JSON text segments referencing short, request-local
 event identifiers. The backend validates references against the exact request,
 then resolves them to local calendar identities. Provider URLs, private event
 UIDs and colour values are not sent to the model. Weather and connecting words
-stay neutral. Each new event phrase must reference one event; different children's
-events are separate segments even when they share a sentence, preserving each
-calendar tint. Legacy phrases combining calendars remain neutral.
+stay neutral. Only short subject noun phrases reference an event and receive its
+calendar tint, such as “Alex’s library pickup.” Predicates, timing and sentence
+punctuation stay in neutral segments. Different children's subjects reference
+their own events even when they share a sentence. Highlighted subjects are bounded
+to 60 Unicode codepoints and eight words, with no sentence-ending punctuation.
+Missing spaces after sentence punctuation at segment boundaries are inserted
+locally without changing decimals or initials within a segment.
 
 The native text renderer applies a soft calendar tint behind a source phrase,
 preserving the normal foreground and the existing measured wrapping. It tests
@@ -182,6 +186,9 @@ the fixed panel in both orientations; the renderer still supports 400-character
 legacy caches. `--demo --briefing-school-preview` shows fictional school phrases
 with separate yellow/purple tints and a blue home-calendar phrase. Invalid segment metadata displays plain
 text, while an invalid generated response keeps the last accepted briefing.
-Legacy cached briefings remain readable without styling. Cached source mappings
+Legacy cached briefings remain readable without whole-sentence styling, and their
+segment-boundary spacing is repaired. The existing request cooldown, schedule and
+budget govern replacement with the subject-only format; settings and spending
+history are retained. Cached source mappings
 are private alongside the existing briefing cache; local colour updates do not
 require another paid request. Request timing and spending limits still apply.
