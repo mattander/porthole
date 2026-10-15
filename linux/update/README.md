@@ -13,18 +13,21 @@ on the frame; the release repository must be public.
 
 ## Scope and trust
 
-Updates replace exactly `/usr/local/bin/porthole` and
-`/usr/local/bin/porthole-calendar`. They preserve household configuration, display
+Ordinary updates replace exactly `/usr/local/bin/porthole` and
+`/usr/local/bin/porthole-calendar`. With the migration bootstrap below, signed
+releases can also add encrypted credential declarations through one fixed
+calendar-service drop-in. They preserve household configuration, display
 preferences, encrypted credentials, Wi-Fi profiles, calendar selection, and the
 AI cache/spending ledger. Kernel, drivers, bootloader, root update helpers, system
-configuration and internal Android/eMMC are outside this app-update channel.
+configuration other than that drop-in, and internal Android/eMMC are outside
+this app-update channel.
 
 The publisher signs a bounded manifest with a local RSA signing key. A public
 verification key is enrolled on the frame during bootstrap. The unprivileged
 fetcher downloads only from fixed HTTPS GitHub asset hosts. The local root
 installer independently verifies the signature, archive/file hashes, ARM ELF
 headers, platform and pinned kernel. It accepts no caller-supplied paths,
-commands, shell scripts, extra archive files, symlinks or traversal entries.
+commands, shell scripts, unlisted archive files, symlinks or traversal entries.
 Manifest sequences must increase; failed/replayed sequences are held back.
 Repository write access alone is insufficient without the matching signing key.
 The publisher and enrolled key remain trusted to supply application code.
@@ -57,7 +60,7 @@ an unsigned network operation.
 
 Prepare a private bootstrap directory containing:
 
-- `update_common.py`, `update_fetch.py`, `update_service.py`,
+- `update_common.py`, `update_fetch.py`, `update_service.py`, `migrations.py`,
   `install-bootstrap.sh`, `update-users.conf`, and the three update service/timer
   files from this directory.
 - `update-public.pem`: the public verification key, never the private key.
@@ -111,6 +114,83 @@ Mixed publications or network failures retain the current app and retry later.
 After publication, the frame updates on its next permitted check, or use
 **Check for updates**. The dashboard briefly restarts during installation.
 
+## Signed credential-support migrations
+
+This installs **support for loading a new credential**, not the actual secret.
+A plan contains only names such as `porthole-google`. The backend implementation
+still arrives in the normal signed app binaries. Secret provisioning and any
+service-specific root importer/credential-writer changes remain separate trusted
+maintenance tasks. Plans cannot install new OS services, packages, root helpers,
+arbitrary files or execute scripts. Existing credentials and selections are not
+read, rewritten, or removed.
+
+An already deployed two-binary updater needs one trusted USB maintenance upgrade.
+Prepare the complete checksum-covered bundle on the publishing machine:
+
+```sh
+python3 linux/update/publish.py migration-bootstrap \
+  --output local/migration-bootstrap
+```
+
+Transfer that directory through the existing trusted maintenance connection,
+then run `bash install-migrations.sh` as root on the SD Linux frame. The helper
+retains the enrolled verification key and updater settings, checks the pinned
+platform, backs up the previous updater, and restores it if installation fails.
+An unfinished app journal must recover under the old updater before retrying.
+An identical completed bootstrap can be rerun safely. Interrupted/failed
+bootstrap evidence requires maintenance review before retrying. The bootstrap
+does not install new native binaries, credentials or service-specific importers.
+New installations using `install-bootstrap.sh` already include migration support.
+
+Create a plan (repeat `--add-credential` for additional names):
+
+```sh
+python3 linux/update/publish.py migration-plan \
+  --add-credential porthole-google --output local/google-migration.json
+python3 linux/update/publish.py release \
+  --binaries local/native-build \
+  --key local/update-signing/signing-private.pem \
+  --version 2026.10.14.6 --output local/release-2026.10.14.6 \
+  --migrations local/google-migration.json
+```
+
+Use a fresh release version; that example is not a published release. A migration
+uses manifest schema 2 and adds exactly `migrations.json` to the archive. Both
+its SHA-256 and the archive SHA-256 are covered by the existing RSA signature.
+Ordinary releases without `--migrations` retain schema 1. **Do not make a schema-2
+release Latest until the receiving frame has the bootstrap.** An older updater
+rejects it without replacing the app; it cannot bootstrap itself through a format
+it does not understand.
+
+Plans accept 1–16 unique names matching `porthole-[a-z][a-z0-9-]{0,47}`. The
+installer merges them with previously installed migration names and atomically
+writes only `/etc/systemd/system/porthole-calendar.service.d/credentials.conf`.
+It generates `LoadCredentialEncrypted=NAME` plus an empty JSON `SetCredential`
+fallback, following the existing service convention. A missing credential leaves
+the new integration unconfigured; the default cannot override an existing
+encrypted credential. See [systemd credential semantics](https://github.com/systemd/systemd/blob/main/man/systemd.exec.xml).
+The installer refuses a symlink or a locally edited/foreign managed drop-in.
+Replaying the same addition is harmless; omitting a plan in later ordinary
+releases preserves all prior declarations. Names cannot be removed by this tool.
+
+Both binaries and the drop-in's previous bytes (or its absence) are backed up
+before the pending journal is synced. Services stay stopped during replacement.
+The installer reloads systemd before startup/health checks. Failed health or an
+interrupted update restores the previous app pair and configuration together,
+then reloads systemd. Corrupted backup evidence blocks recovery without applying
+unverified files. The existing release sequence protection still applies.
+
+```sh
+python3 linux/update/migration-tests.py
+```
+
+These offline tests cover signed plan tampering, bounded/injected names, foreign
+configuration, repeated/additive plans, ordinary release preservation, power loss
+between writes, restart recovery, corrupt backups and failed app health. Target
+verification additionally needs the once-only bootstrap and a real signed
+migration over Wi-Fi; application-only Wi-Fi updates have already been confirmed
+on the physical frame.
+
 ## Services and verification
 
 - `porthole-update.service`: local Unix IPC and privileged, network-disabled
@@ -131,6 +211,7 @@ python3 linux/update/update-tests.py
 Offline tests cover signature tampering, hashes, traversal, links, extra files,
 duplicates, decompression limits, malformed metadata, HTTPS host restrictions,
 peer operations, replay rejection, and recovery after a partial two-file write.
+Run the migration suite above when changing the shared format/transaction code.
 Native tests cover update IPC parsing and Settings control callbacks. Runtime
 checks must additionally verify the installed sandbox, a real signed Wi-Fi
 update, and automatic failed-startup rollback on the target hardware.

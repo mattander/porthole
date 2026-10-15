@@ -36,8 +36,10 @@ steps and official documentation links are in [README.md](README.md).
 
 ## One-time privileged support on the SD frame
 
-The existing Wi-Fi updater intentionally installs only the two native binaries.
-It cannot install the root credential importer, modify service units, or upgrade
+The originally deployed Wi-Fi updater installs only the two native binaries.
+After the [migration bootstrap](../update/README.md#signed-credential-support-migrations),
+signed releases can add encrypted credential declarations to the calendar service.
+They still cannot install the root credential importer/credential writer or upgrade
 its own privileged code. A trusted USB maintenance connection is required once
 for these additions. This is separate from future ordinary Wi-Fi app updates.
 

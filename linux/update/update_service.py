@@ -4,6 +4,7 @@ import concurrent.futures,datetime,json,os,pwd,socket,struct,subprocess,sys,thre
 from pathlib import Path
 sys.path.insert(0,str(Path(__file__).resolve().parent))
 from update_common import FILES,KERNEL,MAX_ARCHIVE,MAX_MANIFEST,VERSION,Rejected,atomic,parse_json,read_regular,save_json,sha,unpack,verify_signature
+from migrations import CredentialPlan,DROP_IN,MAX_PLAN
 
 STATE=Path('/var/lib/porthole-updater')
 CACHE=Path('/var/lib/porthole-update-cache')
@@ -23,26 +24,53 @@ def guard():
     if command(['/usr/bin/uname','-r']).strip().decode()!=KERNEL:raise Rejected('platform')
 
 class Transaction:
-    """Durable two-file transaction; reboot recovery restores the trusted local backup."""
-    def __init__(self,state=STATE,binaries=BIN):self.state=Path(state);self.binaries=Path(binaries)
-    def prepare(self,files,release):
+    """Durable app/config transaction; recovery restores the trusted local backup."""
+    def __init__(self,state=STATE,binaries=BIN,drop_in=DROP_IN):
+        self.state=Path(state);self.binaries=Path(binaries);self.drop_in=Path(drop_in)
+    def prepare(self,files,release,plan=None):
         previous=self.state/'previous';previous.mkdir(mode=0o700,exist_ok=True);hashes={}
+        journal={'hashes':hashes,'release':release}
+        configuration=None
+        if plan is not None:
+            present=os.path.lexists(self.drop_in)
+            old=read_regular(self.drop_in,MAX_PLAN) if present else b''
+            existing=CredentialPlan.from_drop_in(old) if present else CredentialPlan(())
+            configuration=plan.merge(existing).render()
+            if present:atomic(previous/'credentials.conf',old)
+            journal['credentials']={'present':present,'sha256':sha(old)}
         for name in FILES:
             data=read_regular(self.binaries/name,MAX_ARCHIVE);atomic(previous/name,data,0o700);hashes[name]=sha(data)
-        save_json(self.state/'pending.json',{'hashes':hashes,'release':release})
+        save_json(self.state/'pending.json',journal)
         self.replace(files)
+        if configuration is not None:atomic(self.drop_in,configuration,0o644)
     def replace(self,files):
         for name in FILES:atomic(self.binaries/name,files[name],0o755)
     def recover(self):
         pending=self.state/'pending.json'
         if not pending.exists():return False
         value=parse_json(read_regular(pending,MAX_MANIFEST));hashes=value.get('hashes')
+        if set(value) not in ({'hashes','release'},{'hashes','release','credentials'}):raise Rejected('rollback')
         if not isinstance(hashes,dict) or set(hashes)!=set(FILES):raise Rejected('rollback')
         files={name:read_regular(self.state/'previous'/name,MAX_ARCHIVE) for name in FILES}
         if any(sha(files[name])!=hashes[name] for name in FILES):raise Rejected('rollback')
         release=value.get('release')
         if not isinstance(release,dict) or set(release)!={'version','sequence'} or not isinstance(release['version'],str) or type(release['sequence']) is not int:raise Rejected('rollback')
-        self.replace(files);return release
+        credentials=value.get('credentials');old=None
+        if 'credentials' in value and credentials is None:raise Rejected('rollback')
+        if credentials is not None:
+            if not isinstance(credentials,dict) or set(credentials)!={'present','sha256'} or type(credentials['present']) is not bool:raise Rejected('rollback')
+            old=read_regular(self.state/'previous'/'credentials.conf',MAX_PLAN) if credentials['present'] else b''
+            if sha(old)!=credentials['sha256']:raise Rejected('rollback')
+            if credentials['present']:CredentialPlan.from_drop_in(old)
+        self.replace(files)
+        if credentials is not None:
+            if credentials['present']:atomic(self.drop_in,old,0o644)
+            else:
+                self.drop_in.unlink(missing_ok=True)
+                fd=os.open(self.drop_in.parent,os.O_RDONLY|os.O_DIRECTORY)
+                try:os.fsync(fd)
+                finally:os.close(fd)
+        return release
     def commit(self):
         (self.state/'pending.json').unlink(missing_ok=True)
         fd=os.open(self.state,os.O_RDONLY|os.O_DIRECTORY)
@@ -61,7 +89,9 @@ class Installer:
             if value['checked'] and datetime.datetime.fromisoformat(value['checked']).tzinfo is None:raise Rejected('storage')
             self.value=value
         transaction=Transaction();recovered=transaction.recover()
-        if recovered:self.value.update(recovered);self.value['phase']='rolled-back';self.value['reason']='health';self.persist();transaction.commit()
+        if recovered:
+            command(['/usr/bin/systemctl','daemon-reload'])
+            self.value.update(recovered);self.value['phase']='rolled-back';self.value['reason']='health';self.persist();transaction.commit()
         elif self.value['phase'] in {'checking','installing'}:self.value['phase']='idle';self.persist()
     def persist(self):save_json(STATE/'state.json',self.value)
     def status(self):
@@ -106,6 +136,7 @@ class Installer:
             guard()
             raw=read_regular(CACHE/'manifest.json',MAX_MANIFEST);sig=read_regular(CACHE/'manifest.sig',1024)
             manifest=verify_signature(raw,sig,PUBLIC);files=unpack(manifest,read_regular(CACHE/'app.tar.gz',MAX_ARCHIVE))
+            plan=CredentialPlan.parse(files['migrations.json']) if manifest.schema==2 else None
             with self.lock:
                 if manifest.sequence<=self.value['highest']:raise Rejected('archive')
                 self.value['highest']=manifest.sequence;self.value['phase']='installing';self.value['reason']='';self.persist()
@@ -119,7 +150,8 @@ class Installer:
             finally:
                 for path in staged:path.unlink(missing_ok=True)
             command(['/usr/bin/systemctl','stop','porthole-kiosk','porthole-calendar']);stopped=True
-            transaction.prepare(files,{k:self.value[k] for k in ['version','sequence']})
+            transaction.prepare(files,{k:self.value[k] for k in ['version','sequence']},plan)
+            command(['/usr/bin/systemctl','daemon-reload'])
             command(['/usr/bin/systemctl','start','porthole-calendar','porthole-kiosk','porthole-orientation'])
             if not self.health():raise Rejected('health')
             with self.lock:
@@ -131,6 +163,7 @@ class Installer:
             if (STATE/'pending.json').exists():
                 command(['/usr/bin/systemctl','stop','porthole-kiosk','porthole-calendar'])
                 recovered=transaction.recover()
+                command(['/usr/bin/systemctl','daemon-reload'])
                 with self.lock:self.value.update(recovered);self.value['phase']='rolled-back';self.value['reason']='health';self.persist()
                 transaction.commit()
             else:

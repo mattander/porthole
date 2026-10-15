@@ -31,7 +31,7 @@ systemd-sysusers "$PWD/update-users.conf"
 install -d -o root -g root -m755 /usr/local/lib/porthole/update /etc/porthole
 install -d -o root -g porthole -m700 /var/lib/porthole-updater
 install -d -o porthole-update -g porthole-update -m700 /var/lib/porthole-update-cache
-install -o root -g root -m644 update_common.py update_fetch.py update_service.py /usr/local/lib/porthole/update/
+install -o root -g root -m644 update_common.py update_fetch.py update_service.py migrations.py /usr/local/lib/porthole/update/
 install -o root -g root -m644 update-public.pem /etc/porthole/update-public.pem
 install -o root -g root -m644 update.json /etc/porthole/update.json
 install -o root -g root -m644 porthole-update.service porthole-update-check.service porthole-update-check.timer /etc/systemd/system/
