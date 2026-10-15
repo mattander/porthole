@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "calendar-style.h"
 #include "briefing-widget.h"
 #include <QJsonObject>
@@ -17,6 +18,7 @@ int pixels(const QImage &image,const QColor &colour){int count=0;for(int y=0;y<i
 class ColourTests:public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase(){QVERIFY(configureInterfaceTypography());}
     void appleRgbaAndInvalidColours(){
         const auto source=calendarSourceColour("#12345680");QVERIFY(source);
         QCOMPARE(source->red(),18);QCOMPARE(source->green(),52);QCOMPARE(source->blue(),86);QCOMPARE(source->alpha(),128);
@@ -83,7 +85,7 @@ private slots:
         }
         BriefingWidget widget;widget.resize(300,166);widget.show();widget.updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",sources}});QTest::qWait(10);
         auto *area=widget.findChild<QScrollArea*>("briefingKeyArea");auto *key=widget.findChild<QLabel*>("briefingCalendarKey");QVERIFY(area);QVERIFY(key);
-        QCOMPARE(widget.height(),166);QVERIFY(area->height()<=48);QVERIFY(key->height()>area->height());QVERIFY(key->accessibleDescription().contains("calendar name 11"));
+        QCOMPARE(widget.height(),174);QVERIFY(area->height()<=48);QVERIFY(key->height()>area->height());QVERIFY(key->accessibleDescription().contains("calendar name 11"));
         QVERIFY(area->verticalScrollBar()->maximum()>0);area->verticalScrollBar()->setValue(area->verticalScrollBar()->maximum());QVERIFY(area->verticalScrollBar()->value()>0);QCOMPARE(widget.visibleText(),copy);
     }
     void nativePaintAndSourceLabelsSurviveThemeAndSizeChanges(){

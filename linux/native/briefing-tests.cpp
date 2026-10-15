@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "profile.h"
 #include "briefing.h"
 #include "calendar-client.h"
@@ -52,6 +53,7 @@ QList<Event> events(){return {{"private-id","Soccer","Private address","Family",
 class BriefingTests:public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase(){QVERIFY(configureInterfaceTypography());}
     void init(){
         const auto parsed=HouseholdProfile::parse({{"version",1},{"timezone","America/New_York"},{"familyContext","A student's school lunches and weekday planning are relevant."},{"weather",QJsonValue::Null}});
         if(const auto *profile=std::get_if<HouseholdProfile>(&parsed))setHouseholdProfile(*profile);else QFAIL("Invalid timezone fixture");

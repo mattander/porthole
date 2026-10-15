@@ -96,6 +96,12 @@ private slots:
         client.connectAccount("test@example.invalid","PrimaryPassword123!");
         QCOMPARE(failure.size(),1);QVERIFY(failure.first().first().toString().contains("app-specific"));
     }
+    void unicodeCalendarTitlesSurviveIcalAndIpc(){
+        const QString title="Café 🥘 👨‍👩‍👧‍👦 👍🏽 🇨🇦";
+        const auto ics=QString("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nBEGIN:VEVENT\r\nUID:unicode\r\nDTSTART:20261014T180000Z\r\nDTEND:20261014T190000Z\r\nSUMMARY:%1\r\nEND:VEVENT\r\nEND:VCALENDAR\r\n").arg(title).toUtf8();
+        const auto events=parseExpandedCalendar(ics,"Family");QCOMPARE(events.size(),1);QCOMPARE(events[0].title,title);
+        const auto restored=calendarEventFromJson(calendarEventJson(events[0]));QVERIFY(restored);QCOMPARE(restored->title,title);
+    }
 };
 QTEST_GUILESS_MAIN(Tests)
 #include "tests.moc"

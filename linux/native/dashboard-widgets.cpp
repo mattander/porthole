@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "profile.h"
 #include "dashboard-widgets.h"
 #include <QFontMetricsF>
@@ -10,7 +11,7 @@
 #include <cmath>
 
 namespace {
-QFont pixelFont(int pixels){QFont value("DejaVu Sans");value.setPixelSize(pixels);return value;}
+QFont pixelFont(int pixels){return interfaceFont(pixels);}
 QLabel *text(QString value,int size,bool muted=false){auto *label=new QLabel(value);label->setTextFormat(Qt::PlainText);label->setFont(pixelFont(size));if(muted)label->setProperty("tone","secondary");return label;}
 QString checked(QDateTime value){
     if(!value.isValid())return "—";

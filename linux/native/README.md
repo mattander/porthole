@@ -12,6 +12,25 @@ Apple documents how to [create a dedicated app-specific password](https://suppor
 
 ## Build and test
 
+The interface uses bundled Poppins Regular, SemiBold and Bold fonts, with Noto
+Color Emoji for emoji and joined sequences. Qt 6.9 or later is required for the
+application emoji-font selection and COLRv1 rendering. Qt resources embed the
+font files and their SIL Open Font Licenses in the dashboard binary, so signed
+Wi-Fi updates carry the typography without changing system packages. Settings →
+Display → Font licences and `porthole --font-licence` show the included licence.
+See [font provenance](fonts/README.md).
+`--demo --emoji-preview` displays clearly fictional Unicode and emoji examples
+for offline rendering checks.
+
+Display → Follow sunrise and sunset switches to light at sunrise and dark at
+sunset using the configured weather location and timezone. It is off by default;
+choosing Light or Dark turns it off. Valid solar times for up to four forecast
+days are saved with the household profile revision, allowing offline transitions
+and restart recovery. Missing or expired times retain the current theme and show
+a waiting status; location/timezone changes reject the old schedule.
+`--demo --preview-follow-sun --preview-settings --preview-tab Display` previews
+the setting using clearly fictional solar times.
+
 For persistent operation, install the reviewed account service bundle on the validated SD system. Build against the matching ARMv7 userspace; keep kernel/modules at the verified versions. Dependencies are gcc, make, cmake, qt6-base, qt6-wayland, and libical. The frame only needs the runtime dependencies.
 
 ```sh
@@ -71,8 +90,10 @@ It expects the tested app and calendar binaries in `bin/` and `files.sha256`,
 preserves the previous binaries, and restarts the dependent orientation watcher
 with the kiosk. It does not replace credential helpers or service configuration.
 
-The briefing has 20 pixels more separation from the weather, a 166-pixel panel,
-and a 134-pixel text area. It fits the complete bounded response by adapting its
+The briefing reserves a 174-pixel panel and a 142-pixel text area. Eight pixels
+were moved from the gap above it to accommodate Poppins's larger line height
+while retaining the existing screen dimensions and readability floor. It fits
+the complete bounded response by adapting its
 font rather than appending a display ellipsis. Morning/noon/4 PM prompts follow
 weekday/weekend family priorities, with local half-hour change checks from
 6 AM through 9 PM, private cache recovery, and a 31-attempt daily cap. See

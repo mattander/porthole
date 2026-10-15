@@ -1,7 +1,11 @@
+#include "typography.h"
 #include "dashboard-widgets.h"
 #include "calendar-style.h"
 #include "diagnostics.h"
 #include <QImage>
+#include <QFontInfo>
+#include <QPainter>
+#include <QTextLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
@@ -14,6 +18,13 @@ int inkBottom(const QImage &image,int first,int last){int bottom=-1;for(int y=0;
 class LayoutTests:public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase(){QVERIFY(configureInterfaceTypography());}
+    void bundledFontsResolveWithoutSystemInstallation(){
+        for(const auto weight:{QFont::Normal,QFont::DemiBold,QFont::Bold}){
+            const QFontInfo actual(interfaceFont(18,weight));QCOMPARE(actual.family(),QString("Poppins"));QCOMPARE(actual.weight(),weight);
+        }
+        QVERIFY(interfaceFontLicence().contains("SIL OPEN FONT LICENSE Version 1.1"));
+    }
     void clockGlyphsShareBottomBaseline(){
         ClockFace clock;QPalette palette;palette.setColor(QPalette::Window,Qt::white);palette.setColor(QPalette::WindowText,Qt::black);clock.setPalette(palette);
         for(bool portrait:{false,true})for(QTime time:{QTime(0,5),QTime(12,59),QTime(23,11)}){
@@ -21,6 +32,16 @@ private slots:
             QImage image(clock.size(),QImage::Format_ARGB32);image.fill(Qt::white);clock.render(&image);
             const int split=qRound(clock.splitPosition());const int digits=inkBottom(image,0,split-12),period=inkBottom(image,split,image.width());
             QVERIFY(digits>=0);QVERIFY(period>=0);QVERIFY2(std::abs(digits-period)<=2,"The visible AM/PM ink must share the time's baseline");
+        }
+    }
+    void colourEmojiAndJoinedSequencesResolveAndPaint(){
+        for(const auto &emoji:QStringList{"📚","🥘","⚽","❤️","👍🏽","👩🏽‍⚕️","👨‍👩‍👧‍👦","🇨🇦"}){
+            QTextLayout layout(emoji,interfaceFont(32));layout.beginLayout();auto line=layout.createLine();line.setLineWidth(200);layout.endLayout();
+            const auto runs=layout.glyphRuns();QCOMPARE(runs.size(),1);QCOMPARE(runs[0].rawFont().familyName(),QString("Noto Color Emoji"));
+            QCOMPARE(runs[0].glyphIndexes().size(),1);QVERIFY(runs[0].glyphIndexes()[0]!=0);
+            QImage image(200,80,QImage::Format_ARGB32);image.fill(Qt::white);QPainter painter(&image);layout.draw(&painter,QPointF(0,0));painter.end();
+            int coloured=0,ink=0;for(int y=0;y<image.height();++y)for(int x=0;x<image.width();++x){const auto pixel=image.pixelColor(x,y);if(pixel!=QColor(Qt::white))++ink;if(qMax(pixel.red(),qMax(pixel.green(),pixel.blue()))-qMin(pixel.red(),qMin(pixel.green(),pixel.blue()))>30)++coloured;}
+            QVERIFY2(ink>20,qPrintable(emoji));if(emoji!="⚽"&&emoji!="👨‍👩‍👧‍👦")QVERIFY2(coloured>20,qPrintable(emoji));
         }
     }
     void footerControlsShareRowAndUpdateTextIsBottomAligned(){

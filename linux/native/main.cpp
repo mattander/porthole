@@ -1,3 +1,5 @@
+#include "sun-theme.h"
+#include "typography.h"
 #include "profile.h"
 #include "calendar-client.h"
 #include "google-calendar.h"
@@ -55,7 +57,7 @@ bool online() {
 }
 QLabel *label(QString text, int size, QWidget *parent=nullptr) {
     auto *l=new QLabel(text,parent); l->setTextFormat(Qt::PlainText);
-    QFont font("DejaVu Sans");font.setPixelSize(size);l->setFont(font);
+    auto font=interfaceFont(size);l->setFont(font);
     l->setWordWrap(true);return l;
 }
 
@@ -75,7 +77,8 @@ class Dashboard : public QWidget {
     QDate selectedDate=now().date();
     QDate month=selectedDate;
     bool demo=false;
-    bool darkTheme=false;
+    bool darkTheme=false,followSun=false;
+    SunThemeSchedule sunSchedule;
     int view=0;
     QString calendarStatus="iCloud is not connected";
     QString weatherStatus="Weather is not connected";
@@ -107,7 +110,7 @@ public:
         auto *divider=new QFrame;divider->setFrameShape(QFrame::HLine);divider->setFixedHeight(1);left->addWidget(divider);left->addSpacing(5);
         auto *current=new QHBoxLayout;current->setSpacing(18);current->addWidget(currentIcon);current->addWidget(temperature);
         auto *weatherCopy=new QVBoxLayout;weatherCopy->setSpacing(5);weatherCopy->addWidget(weatherLocation);weatherCopy->addWidget(weather);weatherCopy->addWidget(feels);weatherCopy->addWidget(sunTimes);current->addLayout(weatherCopy,1);left->addLayout(current);
-        left->addSpacing(7);left->addWidget(forecast);left->addSpacing(30);left->addWidget(briefing);left->addStretch();
+        left->addSpacing(7);left->addWidget(forecast);left->addSpacing(22);left->addWidget(briefing);left->addStretch();
         auto *right=new QVBoxLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
         QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);right->addWidget(scroll,1);
@@ -132,7 +135,7 @@ public:
         connect(&updates,&UpdateClient::changed,this,[this]{syncSettings();});
         connect(&caldav,&CalendarClient::profileChanged,this,[this](const QJsonObject &){
             if(demo)return;
-            ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();lastWeather={};sunDate={};weatherStale=false;
+            ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();lastWeather={};sunDate={};weatherStale=false;loadSunSchedule();
             weatherLocation->setText(householdProfile().weather()?householdProfile().weather()->label():"Weather location");temperature->setText("—");weather->setText("Updating configured weather…");feels->clear();sunTimes->clear();currentIcon->setCode(-1);forecast->clear();
             events.clear();selectedDate=now().date();month=selectedDate;calendar->setSelectedDate(selectedDate);updateClock();caldav.fetch({},month);refreshWeather();syncSettings();
         });
@@ -178,6 +181,8 @@ public:
         auto *weatherTimer=new QTimer(this);connect(weatherTimer,&QTimer::timeout,this,[this]{if(!demo)refreshWeather();});weatherTimer->start(15*60*1000);
         QSettings preferences(preferencesPath(),QSettings::IniFormat);
         bool dark=preferences.value("display/darkMode",false).toBool();
+        followSun=preferences.value("display/followSun",false).toBool();loadSunSchedule();
+        if(sample||qApp->arguments().contains("--dark")||qApp->arguments().contains("--light"))followSun=false;
         if(qApp->arguments().contains("--dark"))dark=true;
         else if(qApp->arguments().contains("--light"))dark=false;
         applyTheme(dark);
@@ -214,6 +219,7 @@ private:
         settings->updateGoogle(caldav.googleState());settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
         settings->updateDiagnostics(diagnosticState());
         settings->updateSoftware(updates.state());
+        settings->updateAppearance(followSun,sunThemeDescription());
         settings->updateState(demo?calendarStatus:caldav.icloudStatus(),weatherStatus,names,darkTheme,demo,caldav.hasAccount(),!caldav.availableCalendars().isEmpty());
     }
     void showSettings() {
@@ -227,7 +233,8 @@ private:
         actions.setupGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();QMessageBox::information(parent,"Connect Google","Create a Desktop OAuth client with Calendar API enabled, then run linux/google/connect-google.py on your Mac with the downloaded client JSON. Connect the frame over USB for this one-time setup. See linux/google/README.md for the steps.\n\nGoogle sign-in opens in your Mac browser. This frame never asks for your Google password.");};
         actions.forgetGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();if(QMessageBox::question(parent,"Forget Google","Remove Google's saved sign-in from this frame? iCloud remains connected. You can also revoke Porthole in your Google Account permissions.")==QMessageBox::Yes)caldav.forgetGoogleAccount();};
         actions.useLive=[this]{useLiveData();};actions.refresh=[this]{useLiveData();};actions.useSample=[this]{sampleData();};
-        actions.theme=[this](bool dark){applyTheme(dark);const auto path=preferencesPath();QDir().mkpath(QFileInfo(path).absolutePath());QSettings preferences(path,QSettings::IniFormat);preferences.setValue("display/darkMode",dark);preferences.sync();syncSettings();};
+        actions.theme=[this](bool dark){followSun=false;saveAppearance(dark);applyTheme(dark);syncSettings();};
+        actions.followSun=[this](bool enabled){followSun=enabled;saveAppearance(darkTheme);applySunTheme();syncSettings();};
         actions.briefing=[this](bool enabled,QString priorities,int cents){caldav.briefingSettings(enabled,priorities,cents);};
         actions.refreshBriefing=[this]{caldav.refreshBriefing();};
         actions.forgetBriefingKey=[this]{if(QMessageBox::question(settings?static_cast<QWidget*>(settings.data()):this,"Forget API key","Remove the saved OpenAI key and briefing from this frame? Your iCloud and Wi-Fi connections stay saved.")==QMessageBox::Yes)caldav.forgetBriefingKey();};
@@ -236,10 +243,37 @@ private:
     }
     void useLiveData() {
         if(demo){demo=false;events.clear();lastCalendar=caldav.lastChecked();lastWeather={};lastSummary=QDateTime::fromString(latestBriefing["generated"].toString(),Qt::ISODate);weatherStale=false;calendarStatus="iCloud is not connected";temperature->setText("—");weather->setText("Connecting weather…");currentIcon->setCode(-1);feels->clear();sunTimes->clear();forecast->clear();}
-        briefing->updateBriefing(latestBriefing);caldav.reload();refreshData();renderAgenda();markDates();
+        loadSunSchedule();applySunTheme();briefing->updateBriefing(latestBriefing);caldav.reload();refreshData();renderAgenda();markDates();
     }
     static QString preferencesPath() {
         return QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation)+"/porthole/preferences.ini";
+    }
+    void loadSunSchedule(){
+        QSettings preferences(preferencesPath(),QSettings::IniFormat);
+        sunSchedule=SunThemeSchedule::fromCache(preferences.value("display/sunSchedule").toByteArray(),householdProfile());
+    }
+    void saveAppearance(bool dark){
+        if(demo)return;
+        const auto path=preferencesPath();QDir().mkpath(QFileInfo(path).absolutePath());QSettings preferences(path,QSettings::IniFormat);
+        preferences.setValue("display/darkMode",dark);preferences.setValue("display/followSun",followSun);preferences.sync();
+    }
+    QString sunThemeDescription()const{
+        if(!demo&&!householdProfile().weather())return "Choose a weather location in Data to follow sunrise and sunset.";
+        return sunSchedule.descriptionAt(now());
+    }
+    void applySunTheme(){
+        if(followSun)if(const auto dark=sunSchedule.darkAt(now());dark&&*dark!=darkTheme){saveAppearance(*dark);applyTheme(*dark);}
+        if(settings)settings->updateAppearance(followSun,sunThemeDescription());
+    }
+    void acceptSunSchedule(const QJsonObject &daily){
+        const auto accepted=SunThemeSchedule::fromWeather(daily,configuredZone());if(accepted.isEmpty())return;
+        sunSchedule=accepted;
+        if(!demo){
+            const auto path=preferencesPath();QDir().mkpath(QFileInfo(path).absolutePath());QSettings preferences(path,QSettings::IniFormat);
+            const auto cache=sunSchedule.cache(householdProfile());
+            if(preferences.value("display/sunSchedule").toByteArray()!=cache){preferences.setValue("display/sunSchedule",cache);preferences.sync();}
+        }
+        applySunTheme();
     }
     void applyTheme(bool dark) {
         darkTheme=dark;
@@ -281,7 +315,7 @@ private:
     }
     void updateClock() {
         const auto time=now();if(sunDate.isValid()&&sunDate!=time.date()){sunDate={};sunTimes->setText("Sunrise / sunset updating…");if(!demo)refreshWeather();}
-        clock->setTime(time.time());date->setText(time.toString("dddd, MMMM d"));
+        clock->setTime(time.time());date->setText(time.toString("dddd, MMMM d"));applySunTheme();
         if(view<2&&selectedDate!=time.date().addDays(view)){selectedDate=time.date().addDays(view);if(!demo)refreshCalendar();renderAgenda();}
     }
     void renderStatus() {
@@ -335,6 +369,13 @@ private:
         calendarStatus="Sample calendar · iCloud is not connected";weatherStatus="Sample forecast · not live weather";
         temperature->setText("14°");weather->setText("Partly cloudy");feels->setText("Feels like 12° · High 16° / Low 8°");weatherLocation->setText("Example City");currentIcon->setCode(2);sunDate=today;sunTimes->setText("Sunrise 7:35 AM · Sunset 6:35 PM");
         forecast->setForecast({{today.addDays(1),3,13,7},{today.addDays(2),61,12,5},{today.addDays(3),0,15,6}});
+        if(qApp->arguments().contains("--emoji-preview")){
+            events[0].title="Library visit 📚 🇨🇦";events[1].title="Dinner together 🥘 👨‍👩‍👧‍👦";
+            briefing->updateBriefing({{"enabled",true},{"text","Sample: Café plans ☕ and soccer ⚽. Family dinner 🥘 👨‍👩‍👧‍👦, a thumbs-up 👍🏽, a health visit 👩🏽‍⚕️, and a Canadian flag 🇨🇦."}});
+        }
+        const auto todayString=today.toString(Qt::ISODate);
+        sunSchedule=SunThemeSchedule::fromWeather({{"time",QJsonArray{todayString}}, {"sunrise",QJsonArray{todayString+"T07:35"}}, {"sunset",QJsonArray{todayString+"T18:35"}}},configuredZone());
+        if(qApp->arguments().contains("--preview-follow-sun"))followSun=true;
         lastCalendar=lastWeather=lastSummary=now();weatherStale=false;
         if(qApp->arguments().contains("--preview-errors")){weatherStale=true;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);}
         updateClock();changeView(0);markDates();
@@ -397,7 +438,7 @@ private:
             feels->setText(QString("Feels like %1° · High %2° / Low %3°").arg(qRound(current["apparent_temperature"].toDouble())).arg(qRound(high[0].toDouble())).arg(qRound(low[0].toDouble())));
             const auto sunrise=QDateTime::fromString((daily["sunrise"].toArray().isEmpty()?QString():daily["sunrise"].toArray().first().toString()),Qt::ISODate);
             const auto sunset=QDateTime::fromString((daily["sunset"].toArray().isEmpty()?QString():daily["sunset"].toArray().first().toString()),Qt::ISODate);
-            sunDate=now().date();
+            acceptSunSchedule(daily);sunDate=now().date();
             sunTimes->setText(sunrise.isValid()&&sunset.isValid()&&sunrise.date()==now().date()&&sunset.date()==now().date()?QString("Sunrise %1 · Sunset %2").arg(sunrise.time().toString("h:mm AP"),sunset.time().toString("h:mm AP")):QString("Sunrise / sunset unavailable"));
             forecast->setForecast(future);lastWeather=now();weatherStale=false;diagnostics.recover(DataSource::Weather);
             caldav.briefingWeather({{"profileRevision",profileRevision(householdProfile())},{"checked",lastWeather.toString(Qt::ISODate)},{"days",briefingDays}});
@@ -407,13 +448,16 @@ private:
 };
 
 int main(int argc,char **argv) {
+    for(int i=1;i<argc;++i)if(QString::fromLocal8Bit(argv[i])=="--font-licence"){
+        QCoreApplication app(argc,argv);const auto licence=interfaceFontLicence();QTextStream(stdout)<<licence;return licence.isEmpty()?1:0;
+    }
     for(int i=1;i<argc;++i)if(QString::fromLocal8Bit(argv[i])=="--self-check"){
         QCoreApplication app(argc,argv);const bool tls=QSslSocket::supportsSsl(),zone=configuredZone().isValid();
         QTextStream(stdout)<<"TLS available: "<<tls<<"\nConfigured timezone valid: "<<zone<<"\n";
         return tls&&zone?0:1;
     }
     QApplication app(argc,argv);app.setApplicationName("Porthole");app.setDesktopFileName("porthole");app.setStyle("Fusion");
-    QFont appFont("DejaVu Sans");appFont.setPixelSize(18);app.setFont(appFont);
+    if(!configureInterfaceTypography()){qCritical("Bundled interface fonts could not be loaded");return 1;}
     Dashboard dashboard(app.arguments().contains("--demo"));dashboard.resize(1280,800);
     if(app.arguments().contains("--portrait"))dashboard.resize(800,1280);
     if(app.arguments().contains("--windowed"))dashboard.show();else dashboard.showFullScreen();
