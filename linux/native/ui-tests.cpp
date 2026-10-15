@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "profile.h"
 #include "keyboard.h"
 #include "settings.h"
@@ -10,6 +11,8 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QApplication>
+#include <QFontInfo>
+#include <QPlainTextEdit>
 #include <QtTest>
 
 namespace {
@@ -21,6 +24,14 @@ QPushButton *named(QWidget &widget,const QString &name){
 class SettingsTests:public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase(){QVERIFY(configureInterfaceTypography());QCOMPARE(QFontInfo(QApplication::font()).family(),QString("Poppins"));}
+    void fontLicenceIsReadableOnTheFrame(){
+        QWidget parent;parent.resize(800,1280);WifiController wifi(nullptr,true);SettingsPane pane(&wifi,{},&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(2);
+        QTimer::singleShot(0,&pane,[&]{
+            auto *dialog=QApplication::activeModalWidget();QVERIFY(dialog);QTimer::singleShot(3000,dialog,&QDialog::close);
+            auto *licence=dialog->findChild<QPlainTextEdit*>("fontLicenceText");QVERIFY(licence);QVERIFY(licence->isReadOnly());QVERIFY(licence->toPlainText().contains("SIL OPEN FONT LICENSE Version 1.1"));QVERIFY(licence->toPlainText().contains("Poppins Project Authors"));dialog->close();
+        });QTest::mouseClick(named(pane,"Font licences"),Qt::LeftButton);
+    }
     void layoutsAndActions(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);
         int signedIn=0,signedOut=0,live=0,sample=0,refresh=0;bool dark=false;
@@ -44,6 +55,15 @@ private slots:
         tabs->setCurrentIndex(3);QTest::mouseClick(named(pane,"Use live data"),Qt::LeftButton);QCOMPARE(live,1);
         QTest::mouseClick(named(pane,"View sample data"),Qt::LeftButton);QCOMPARE(sample,1);
         QTest::mouseClick(named(pane,"Refresh live data"),Qt::LeftButton);QCOMPARE(refresh,1);
+    }
+    void sunriseSettingReflectsStateWithoutEmittingUserChanges(){
+        QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int changes=0;bool enabled=false;SettingsActions actions;actions.followSun=[&](bool value){++changes;enabled=value;};
+        SettingsPane pane(&wifi,actions,&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(2);
+        auto *follow=pane.findChild<QCheckBox*>("followSun");auto *status=pane.findChild<QLabel*>("sunThemeStatus");QVERIFY(follow);QVERIFY(status);
+        pane.updateAppearance(true,"Light until sunset at 6:35 PM");QCOMPARE(changes,0);QVERIFY(follow->isChecked());QVERIFY(status->isVisible());QVERIFY(named(pane,"Light")->isEnabled());QVERIFY(named(pane,"Dark")->isEnabled());
+        QTest::mouseClick(follow,Qt::LeftButton);QCOMPARE(changes,1);QVERIFY(!enabled);
+        pane.updateAppearance(false,{});QCOMPARE(changes,1);QVERIFY(!status->isVisible());
+        for(const auto size:{QSize(1280,800),QSize(800,1280)}){pane.resize(size);pane.updateAppearance(true,"Waiting for today's sun times. Keeping the current theme.");QTest::qWait(10);QVERIFY(follow->height()>=48);QVERIFY(pane.rect().contains(QRect(follow->mapTo(&pane,QPoint()),follow->size())));}
     }
     void googleControlsAreIndependentAndFitBothOrientations(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int setup=0,choose=0,forget=0;SettingsActions actions;actions.setupGoogle=[&]{++setup;};actions.chooseGoogle=[&]{++choose;};actions.forgetGoogle=[&]{++forget;};SettingsPane pane(&wifi,actions,&parent);pane.show();QTest::qWait(20);

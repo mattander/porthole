@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "briefing-widget.h"
 #include "briefing.h"
 #include "calendar-style.h"
@@ -26,7 +27,7 @@ std::optional<qreal> wrappedHeight(const QString &text,const QFont &font,int wid
     while(true){auto line=layout.createLine();if(!line.isValid())break;line.setLineWidth(width);height+=line.height();if(line.naturalTextWidth()>width+.1){layout.endLayout();return std::nullopt;}}
     layout.endLayout();return height;
 }
-QLabel *text(QString value,int size){auto *label=new QLabel(value);label->setTextFormat(Qt::PlainText);QFont font("DejaVu Sans");font.setPixelSize(size);label->setFont(font);return label;}
+QLabel *text(QString value,int size){auto *label=new QLabel(value);label->setTextFormat(Qt::PlainText);auto font=interfaceFont(size);label->setFont(font);return label;}
 }
 // QLabel's word wrap can clip an unbroken word instead of using our measured
 // wrapping. Draw with exactly the same QTextLayout policy used by the fitter.
@@ -80,15 +81,15 @@ private:
 QString BriefingWidget::visibleText()const{return body->text();}
 QString fittingBriefing(QString value,const QFont &,QSize){return boundedBriefing(value);}
 BriefingWidget::BriefingWidget(QWidget *parent):QWidget(parent){
-    setObjectName("familyBriefing");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(166);
+    setObjectName("familyBriefing");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(174);
     auto *layout=new QVBoxLayout(this);layout->setContentsMargins(0,0,0,0);layout->setSpacing(8);
     auto *title=text("Family briefing",18);auto font=title->font();font.setWeight(QFont::DemiBold);title->setFont(font);title->setFixedHeight(24);
     auto *header=new QHBoxLayout;header->setSpacing(8);header->addWidget(title);
     auto *badge=text("AI",11);badge->setObjectName("aiBadge");badge->setProperty("tone","secondary");badge->setFixedSize(24,18);header->addWidget(badge);header->addStretch();
     stamp=text("",12);stamp->setObjectName("briefingStamp");stamp->setProperty("tone","secondary");stamp->setFixedHeight(18);header->addWidget(stamp);stamp->hide();layout->addLayout(header);
-    body=new BriefingText;body->setText("Enable AI briefing in Settings");QFont bodyFont("DejaVu Sans");bodyFont.setPixelSize(21);body->setFont(bodyFont);
-    body->setObjectName("briefingText");body->setTextFormat(Qt::PlainText);body->setWordWrap(true);body->setAlignment(Qt::AlignTop|Qt::AlignLeft);body->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);body->setFixedHeight(134);layout->addWidget(body);
-    key=new CalendarKey;key->setObjectName("briefingCalendarKey");key->setTextFormat(Qt::PlainText);key->setWordWrap(true);QFont keyFont("DejaVu Sans");keyFont.setPixelSize(14);key->setFont(keyFont);
+    body=new BriefingText;body->setText("Enable AI briefing in Settings");auto bodyFont=interfaceFont(21);body->setFont(bodyFont);
+    body->setObjectName("briefingText");body->setTextFormat(Qt::PlainText);body->setWordWrap(true);body->setAlignment(Qt::AlignTop|Qt::AlignLeft);body->setSizePolicy(QSizePolicy::Ignored,QSizePolicy::Ignored);body->setFixedHeight(142);layout->addWidget(body);
+    key=new CalendarKey;key->setObjectName("briefingCalendarKey");key->setTextFormat(Qt::PlainText);key->setWordWrap(true);auto keyFont=interfaceFont(14);key->setFont(keyFont);
     keyArea=new QScrollArea;keyArea->setObjectName("briefingKeyArea");keyArea->setFrameShape(QFrame::NoFrame);keyArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);keyArea->setWidget(key);keyArea->hide();
     QScroller::grabGesture(keyArea->viewport(),QScroller::TouchGesture);layout->addWidget(keyArea);layout->addStretch();
     fullText=body->text();
@@ -127,8 +128,8 @@ void BriefingWidget::fit(){
     const bool hasKey=!key->text().isEmpty();keyArea->setVisible(hasKey);
     const int keyWidth=qMax(1,width()-16),keyHeight=hasKey?qMin(48,key->heightForWidth(keyWidth)):0;
     key->setFixedSize(keyWidth,key->heightForWidth(keyWidth));keyArea->setFixedHeight(keyHeight);
-    const int maximumHeight=134-(hasKey?keyHeight+8:0),bodyWidth=qMax(1,width()-3);
-    QFont font("DejaVu Sans");font.setPixelSize(21);
+    const int maximumHeight=142-(hasKey?keyHeight+8:0),bodyWidth=qMax(1,width()-3);
+    auto font=interfaceFont(21);
     auto measured=wrappedHeight(fullText,font,bodyWidth);
     while(font.pixelSize()>1&&(!measured||*measured>maximumHeight-3)){font.setPixelSize(font.pixelSize()-1);measured=wrappedHeight(fullText,font,bodyWidth);}
     body->setFixedHeight(qBound(1,qCeil(measured.value_or(maximumHeight-3))+3,maximumHeight));body->setFont(font);body->setText(fullText);

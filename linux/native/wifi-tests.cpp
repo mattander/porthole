@@ -1,3 +1,4 @@
+#include "typography.h"
 #include "wifi.h"
 #include "keyboard.h"
 #include <QApplication>
@@ -50,6 +51,7 @@ QPushButton *key(QWidget &widget,const QString &text){for(auto *button:widget.fi
 class WifiResponsivenessTests:public QObject {
     Q_OBJECT
 private slots:
+    void initTestCase(){QVERIFY(configureInterfaceTypography());}
     void delayedNetworkServiceDoesNotFreezeTyping(){
         QElapsedTimer elapsed;elapsed.start();qint64 previous=0,worstGap=0;int pulses=0;
         QTimer heartbeat;connect(&heartbeat,&QTimer::timeout,this,[&]{const auto now=elapsed.elapsed();worstGap=qMax(worstGap,now-previous);previous=now;++pulses;});heartbeat.start(20);

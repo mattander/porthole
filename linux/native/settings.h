@@ -14,6 +14,7 @@
 struct SettingsActions {
     std::function<void()> signIn,signOut,changeCalendars,useLive,useSample,refresh;
     std::function<void(bool)> theme;
+    std::function<void(bool)> followSun;
     std::function<void(bool,QString,int)> briefing;
     std::function<void()> refreshBriefing,forgetBriefingKey,clearDiagnosticHistory;
     std::function<void(QJsonObject)> profile;
@@ -30,10 +31,13 @@ public:
     void updateBriefing(const QJsonObject &state);
     void updateDiagnostics(const QJsonObject &state);
     void updateSoftware(const std::optional<SoftwareUpdate> &state);
+    void updateAppearance(bool followSun,const QString &status);
 private:
     QLabel *googleStatus;QPushButton *googleChoose,*googleForget;
     QLabel *calendarStatus,*weatherStatus,*calendarNames,*modeStatus;
     QPushButton *lightButton,*darkButton,*signOutButton,*chooseButton;
+    QCheckBox *followSun;
+    QLabel *sunThemeStatus;
     QLabel *briefingStatus,*briefingSpending;
     QCheckBox *briefingEnabled;
     QLineEdit *briefingPriorities;

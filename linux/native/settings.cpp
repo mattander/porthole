@@ -1,4 +1,5 @@
 #include "profile.h"
+#include "typography.h"
 #include <QMessageBox>
 #include "settings.h"
 #include "keyboard.h"
@@ -19,6 +20,7 @@
 #include <QScrollBar>
 #include <QTabWidget>
 #include <QTimer>
+#include <QPlainTextEdit>
 #include <QVBoxLayout>
 
 namespace {
@@ -84,7 +86,16 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     display->addWidget(text("Appearance",28));display->addWidget(text("Choose the look of your wall display. Your choice is saved on this SD card.",18,true));
     auto *themes=new QHBoxLayout;lightButton=action("Light");darkButton=action("Dark");lightButton->setCheckable(true);darkButton->setCheckable(true);auto *group=new QButtonGroup(this);group->addButton(lightButton);group->addButton(darkButton);themes->addWidget(lightButton);themes->addWidget(darkButton);themes->addStretch();display->addLayout(themes);
     connect(lightButton,&QPushButton::clicked,this,[actions]{actions.theme(false);});connect(darkButton,&QPushButton::clicked,this,[actions]{actions.theme(true);});
-    display->addWidget(text("Rotation follows the frame",22));display->addWidget(text("Turn it to either landscape or portrait direction. The screen and touch positions follow together.",18,true));display->addStretch();tabs->addTab(displayPage,"Display");
+    followSun=new TouchCheckBox("Follow sunrise and sunset");followSun->setObjectName("followSun");followSun->setMinimumHeight(48);display->addWidget(followSun);
+    display->addWidget(text("Uses your weather location. Choosing Light or Dark turns this off.",16,true));sunThemeStatus=text("",16,true);sunThemeStatus->setObjectName("sunThemeStatus");display->addWidget(sunThemeStatus);sunThemeStatus->hide();
+    connect(followSun,&QCheckBox::toggled,this,[actions](bool enabled){if(actions.followSun)actions.followSun(enabled);});
+    display->addWidget(text("Rotation follows the frame",22));display->addWidget(text("Turn it to either landscape or portrait direction. The screen and touch positions follow together.",18,true));display->addStretch();
+    auto *fontLicence=action("Font licences");display->addWidget(fontLicence,0,Qt::AlignLeft);
+    connect(fontLicence,&QPushButton::clicked,this,[this]{
+        QDialog dialog(this);dialog.setWindowTitle("Bundled font licences");dialog.resize(size());auto *layout=new QVBoxLayout(&dialog);
+        layout->addWidget(text("Bundled font licences",28));auto *licence=new QPlainTextEdit(interfaceFontLicence());licence->setObjectName("fontLicenceText");licence->setReadOnly(true);licence->setLineWrapMode(QPlainTextEdit::WidgetWidth);layout->addWidget(licence,1);
+        auto *close=action("Back to Settings");layout->addWidget(close);connect(close,&QPushButton::clicked,&dialog,&QDialog::accept);dialog.exec();
+    });tabs->addTab(displayPage,"Display");
 
     auto *dataPage=new QWidget;auto *data=new QVBoxLayout(dataPage);data->setContentsMargins(24,24,24,24);data->setSpacing(20);
     data->addWidget(text("Weather & time",28));profileInfo=text("Weather location is not configured",18);profileInfo->setObjectName("profileInfo");data->addWidget(profileInfo);weatherStatus=text("",18,true);data->addWidget(weatherStatus);data->addWidget(text("Calendar checks every minute · Weather refreshes every 15 minutes",16,true));data->addWidget(text("Weather provider: Open-Meteo",16,true));
@@ -183,6 +194,9 @@ void SettingsPane::updateBriefing(const QJsonObject &state){
     }
 }
 
+void SettingsPane::updateAppearance(bool enabled,const QString &status){
+    QSignalBlocker blocker(followSun);followSun->setChecked(enabled);sunThemeStatus->setText(enabled?status:QString());sunThemeStatus->setVisible(enabled);
+}
 void SettingsPane::updateDiagnostics(const QJsonObject &state){
     lastDiagnostics=safeDiagnostics(state);const auto &safe=lastDiagnostics;const int active=safe["active"].toInt();diagnosticState->setText(active?QString("%1 %2").arg(active).arg(active==1?"issue needs attention":"issues need attention"):"No active issues");
     QStringList sources;for(const auto &value:safe["sources"].toArray()){const auto s=value.toObject();const auto time=QDateTime::fromString(s["checked"].toString(),Qt::ISODate).toTimeZone(configuredZone());sources<<s["name"].toString()+" · "+s["status"].toString()+" · "+(time.isValid()?time.toString("ddd h:mm AP"):s["checked"].toString());}diagnosticSources->setText(sources.join("\n\n"));
