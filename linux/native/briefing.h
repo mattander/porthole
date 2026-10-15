@@ -9,6 +9,8 @@
 #include <functional>
 
 constexpr int BriefingCharacterLimit=400;
+constexpr int BriefingGenerationCharacterLimit=240;
+constexpr int BriefingGenerationReferencesPerSegmentLimit=1;
 constexpr int BriefingDailyAttemptLimit=31;
 constexpr int BriefingSegmentLimit=32;
 constexpr int BriefingReferencesPerSegmentLimit=4;

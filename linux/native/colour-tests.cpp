@@ -7,6 +7,7 @@
 #include <QToolTip>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QTextLayout>
 #include <QtTest>
 
 namespace {
@@ -104,6 +105,30 @@ private slots:
             widget.updateBriefing({{"enabled",true},{"text",content()}});QPixmap plain(widget.size());widget.render(&plain);
             QCOMPARE(pixels(plain.toImage(),calendarPhraseTint("#E7A82F",background,foreground)),0);
             QVERIFY(widget.findChild<QLabel*>("briefingText")->accessibleDescription().isEmpty());
+        }
+    }
+    void longTintedBriefingFitsItsActualPaintLayoutWithTheKey(){
+        const QJsonArray parts{
+            QJsonObject{{"text","Tomorrow, the library return pickup runs from 8 AM to 6 PM. "},{"calendar_ids",QJsonArray{"family"}}},
+            QJsonObject{{"text","Tomorrow's forecast is rain, with a high of 10°C and low of 7°C. "},{"calendar_ids",QJsonArray{}}},
+            QJsonObject{{"text","Friday is a student's school pasta day, with lunch provided, and another student's picture day. "},{"calendar_ids",QJsonArray{"school"}}},
+            QJsonObject{{"text","An adult is on vacation Friday. The family visit on Saturday starts at noon."},{"calendar_ids",QJsonArray{"family"}}}};
+        QString copy;for(const auto &value:parts)copy+=value.toObject()["text"].toString();
+        QVERIFY(copy.toUcs4().size()<=400);
+        BriefingWidget widget;widget.show();
+        for(bool dark:{false,true})for(int width:{620,744,300}){
+            const QColor background(dark?"#171d25":"#f6f5ef"),foreground(dark?"#e6ebe9":"#253c3c");
+            QPalette palette;palette.setColor(QPalette::Window,background);palette.setColor(QPalette::WindowText,foreground);widget.setPalette(palette);
+            widget.resize(width,174);widget.updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",calendars()},{"status","AI resting"}});QTest::qWait(10);
+            auto *body=widget.findChild<QLabel*>("briefingText");auto *area=widget.findChild<QWidget*>("briefingKeyArea");QVERIFY(body);QVERIFY(area);
+            QTextLayout layout(copy,body->font());QTextOption option;option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);layout.setTextOption(option);
+            layout.setFormats(briefingFormats(copy,parts,calendars(),background,foreground));
+            layout.beginLayout();qreal height=0;
+            while(true){auto line=layout.createLine();if(!line.isValid())break;line.setLineWidth(body->width()-3);height+=line.height();}
+            layout.endLayout();
+            QVERIFY2(height<=body->contentsRect().height(),qPrintable(QString("painted %1px, available %2px, font %3px, width %4px").arg(height).arg(body->contentsRect().height()).arg(body->font().pixelSize()).arg(body->width())));
+            QVERIFY(widget.rect().contains(QRect(area->mapTo(&widget,QPoint()),area->size())));
+            QCOMPARE(widget.visibleText(),copy);
         }
     }
     void tappingBriefingShowsEscapedSourceLabels(){

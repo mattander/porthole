@@ -56,7 +56,10 @@ The `wifi-ui-responsiveness` test uses a private D-Bus daemon and a deliberately
 ## Family briefing
 
 The AI briefing sits below the weather in a fixed-height area. It has a backend
-400-character limit and a separate pixel-fit renderer for both orientations.
+240-character generation limit (usually 140–200 characters) and a separate
+pixel-fit renderer for both orientations. It selects the two or three most useful
+facts instead of repeating the forecast's highs/lows. Previously cached briefings
+up to 400 characters remain readable without discarding their source mappings.
 A small key directly beneath tinted phrases pairs calendar colours with readable
 names, once per referenced calendar. It hides for plain-text briefings and neutral
 multi-calendar phrases. The key wraps; unusually long lists scroll within a
@@ -162,7 +165,9 @@ The briefing returns bounded JSON text segments referencing short, request-local
 event identifiers. The backend validates references against the exact request,
 then resolves them to local calendar identities. Provider URLs, private event
 UIDs and colour values are not sent to the model. Weather and connecting words
-stay neutral; a phrase combining calendars also stays neutral.
+stay neutral. Each new event phrase must reference one event; different children's
+events are separate segments even when they share a sentence, preserving each
+calendar tint. Legacy phrases combining calendars remain neutral.
 
 The native text renderer applies a soft calendar tint behind a source phrase,
 preserving the normal foreground and the existing measured wrapping. It tests
@@ -172,8 +177,10 @@ before tinting. Tap the briefing to see its phrase-to-calendar source labels;
 the same descriptions are exposed to assistive technology. Titles and generated
 text remain plain text, never model-supplied markup.
 
-The complete briefing remains limited to 400 Unicode codepoints and fitted inside
-the fixed panel in both orientations. Invalid segment metadata displays plain
+New generated briefings are limited to 240 Unicode codepoints and fitted inside
+the fixed panel in both orientations; the renderer still supports 400-character
+legacy caches. `--demo --briefing-school-preview` shows fictional school phrases
+with separate yellow/purple tints and a blue home-calendar phrase. Invalid segment metadata displays plain
 text, while an invalid generated response keeps the last accepted briefing.
 Legacy cached briefings remain readable without styling. Cached source mappings
 are private alongside the existing briefing cache; local colour updates do not

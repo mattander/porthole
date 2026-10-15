@@ -64,12 +64,16 @@ caching retention can still apply. See [OpenAI data controls](https://developers
 
 ## Physical display limits
 
-The prompt and JSON schema request at most **400 Unicode code points** and
-complete sentences. Oversized responses are rejected, retaining the last valid
-briefing, rather than cut off. The 166-pixel panel sits 20 pixels lower than the
-previous layout; its 134-pixel text area measures and draws with the same wrapping
-policy. The font adapts to show the entire bounded text, with no display ellipsis.
-Full 400-character text, long unbroken words, both orientations, and narrow
+New briefings target **140–200 Unicode code points**, with a hard maximum of
+**240**, two short sentences, and the two or three most useful facts. The prompt
+avoids repeating the forecast's highs/lows. Each event phrase references exactly
+one event; facts from separate school calendars cannot share one generated source
+segment. Weather and connecting words stay neutral.
+Oversized or multi-event segments are rejected, retaining the last valid briefing.
+Previously cached briefings up to 400 characters retain their complete text and
+source mappings. The 174-pixel panel reserves 142 pixels for the body and colour
+key. The font adapts to show the entire bounded text, with no display ellipsis.
+Long highlighted legacy text with its colour key, unbroken words, both orientations, and narrow
 fixture widths are covered by tests. Cache/source state appears beside the AI
 attribution. Demo mode uses fictional data and never makes AI requests.
 
