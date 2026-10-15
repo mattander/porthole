@@ -39,17 +39,19 @@ class Manifest:
     version:str
     archive_size:int
     archive_sha256:str
-    files:dict
+    files:dict[str,str]
+    schema:int=1
     @classmethod
     def parse(cls,raw):
         v=parse_json(raw)
-        if set(v)!={'schema','sequence','version','platform','kernel','archive_size','archive_sha256','files'} or type(v['schema']) is not int or v['schema']!=1:raise Rejected('archive')
+        if set(v)!={'schema','sequence','version','platform','kernel','archive_size','archive_sha256','files'} or type(v['schema']) is not int or v['schema'] not in (1,2):raise Rejected('archive')
         if v['platform']!=PLATFORM or v['kernel']!=KERNEL:raise Rejected('platform')
         if type(v['sequence']) is not int or not 1<=v['sequence']<=9007199254740991:raise Rejected('archive')
         if not isinstance(v['version'],str) or not VERSION.fullmatch(v['version']):raise Rejected('archive')
         if type(v['archive_size']) is not int or not 1<=v['archive_size']<=MAX_ARCHIVE or not digest(v['archive_sha256']):raise Rejected('archive')
-        if not isinstance(v['files'],dict) or set(v['files'])!=set(FILES) or not all(digest(x) for x in v['files'].values()):raise Rejected('archive')
-        return cls(v['sequence'],v['version'],v['archive_size'],v['archive_sha256'],v['files'])
+        expected=set(FILES) if v['schema']==1 else set(FILES)|{'migrations.json'}
+        if not isinstance(v['files'],dict) or set(v['files'])!=expected or not all(digest(x) for x in v['files'].values()):raise Rejected('archive')
+        return cls(v['sequence'],v['version'],v['archive_size'],v['archive_sha256'],v['files'],v['schema'])
 
 def verify_signature(raw,signature,public_key):
     if len(raw)>MAX_MANIFEST or not 256<=len(signature)<=1024:raise Rejected('signature')
@@ -70,13 +72,20 @@ def unpack(manifest,archive):
         result={}
         with tarfile.open(fileobj=io.BytesIO(raw),mode='r:') as tar:
             for item in tar:
-                if item.name not in FILES or item.name in result or not item.isreg() or item.pax_headers or item.sparse or not 52<=item.size<=MAX_ARCHIVE:raise Rejected('archive')
+                if item.name not in manifest.files or item.name in result or not item.isreg() or item.pax_headers or item.sparse:raise Rejected('archive')
+                maximum=4096 if item.name=='migrations.json' else MAX_ARCHIVE
+                minimum=1 if item.name=='migrations.json' else 52
+                if not minimum<=item.size<=maximum:raise Rejected('archive')
                 stream=tar.extractfile(item)
                 if stream is None:raise Rejected('archive')
                 data=stream.read(MAX_ARCHIVE+1)
-                if len(data)!=item.size or sha(data)!=manifest.files[item.name] or not arm_binary(data):raise Rejected('archive')
+                if len(data)!=item.size or sha(data)!=manifest.files[item.name]:raise Rejected('archive')
+                if item.name=='migrations.json':
+                    from migrations import CredentialPlan
+                    CredentialPlan.parse(data)
+                elif not arm_binary(data):raise Rejected('archive')
                 result[item.name]=data
-        if set(result)!=set(FILES):raise Rejected('archive')
+        if set(result)!=set(manifest.files):raise Rejected('archive')
         return result
     except (tarfile.TarError,zlib.error,EOFError,ValueError):raise Rejected('archive') from None
 

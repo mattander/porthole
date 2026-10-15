@@ -164,8 +164,10 @@ settings and saved accounts. Failed startup restores the previous app binaries.
 Updates use outbound HTTPS, with no inbound server or device-address discovery.
 Publish a signed release after building/testing; pushing source alone does not
 update the frame. The signing key stays on the publishing machine. See
-[bootstrap, release publishing and recovery](linux/update/README.md). This channel
-updates the app/calendar backend, while kernel and firmware remain separate
+[bootstrap, release publishing and recovery](linux/update/README.md). Updates
+also support additive encrypted-credential declarations after a once-only
+trusted migration bootstrap; the channel never includes secret values or migration scripts.
+The channel updates the app/calendar backend, while kernel and firmware remain separate
 maintenance work.
 
 ## Other previews
