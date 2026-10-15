@@ -28,7 +28,7 @@ private slots:
     }
     void weatherQueryUsesValidatedLocationAndTimezone(){
         const auto parsed=HouseholdProfile::parse(fixture());const auto *profile=std::get_if<HouseholdProfile>(&parsed);QVERIFY(profile);const auto url=weatherForecastUrl(*profile);QVERIFY(url);
-        const auto rain=weatherRainUrl(*profile);QVERIFY(rain);QUrlQuery rainQuery(*rain);QCOMPARE(rainQuery.queryItemValue("timeformat"),QString("unixtime"));QCOMPARE(rainQuery.queryItemValue("timezone"),QString("UTC"));QCOMPARE(rainQuery.queryItemValue("forecast_hours"),QString("8"));QCOMPARE(rainQuery.queryItemValue("hourly"),QString("precipitation_probability"));QVERIFY(!rain->toString().contains("Student"));
+        const auto rain=weatherRainUrl(*profile);QVERIFY(rain);QUrlQuery rainQuery(*rain);QCOMPARE(rainQuery.queryItemValue("timeformat"),QString("unixtime"));QCOMPARE(rainQuery.queryItemValue("timezone"),QString("UTC"));QCOMPARE(rainQuery.queryItemValue("forecast_hours"),QString("8"));QCOMPARE(rainQuery.queryItemValue("hourly"),QString("rain,showers"));QCOMPARE(rainQuery.queryItemValue("current"),QString("rain,showers"));QVERIFY(!rain->toString().contains("Student"));
         QCOMPARE(url->host(),QString("api.open-meteo.com"));QCOMPARE(url->scheme(),QString("https"));QUrlQuery query(*url);QCOMPARE(query.queryItemValue("latitude"),QString("51.5"));QCOMPARE(query.queryItemValue("longitude"),QString("-0.12"));QCOMPARE(query.queryItemValue("timezone"),QString("Europe/London"));QVERIFY(query.queryItemValue("daily").contains("sunrise,sunset"));QVERIFY(!url->toString().contains("Student"));
     }
     void savesAtomicallyAndRestoresPrivateSettings(){

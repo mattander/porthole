@@ -71,19 +71,30 @@ show a retry message. Notes are not included in AI briefing requests.
 `--demo --preview-event-details` opens a fictional event. Demo captures reject
 a clipped briefing, overlapping agenda or off-screen controls.
 
-## Hourly precipitation
+## Rain intensity guide
 
-A compact six-column strip shows the current hour and following five hourly
-precipitation chances alongside the existing three-day forecast. Percentages cover
-rain and snow; they are not a guarantee that rain starts at a particular minute.
-The existing Open-Meteo provider supplies a separate bounded hourly response every
-15 minutes. See its [hourly probability and timestamp definitions](https://open-meteo.com/en/docs#hourly-parameter-definition).
+A continuous blue curve appears only when a fresh current Open-Meteo report
+contains liquid rain or showers. Its height follows forecast rainfall amounts,
+with a faint fill and local time labels only: no separate bars, percentage labels
+or numeric intensity axis. The curve joins the current rate to the next five
+hourly intervals using their actual time spacing. Close time labels are skipped
+to keep them readable. Its vertical scale is relative to the visible forecast, with a
+1 mm/hour minimum range; it is a qualitative guide to lighter/heavier periods,
+not minute-by-minute radar.
 
-Hourly probabilities refer to the interval preceding each returned timestamp.
-Requests use Unix timestamps in UTC; labels convert to the configured timezone,
-including daylight-saving transitions. Missing, malformed and expired data never
-become zero-percent forecasts. A failed refresh retains an available forecast with
-a saved-data label; old or incomplete hourly coverage displays unavailable.
+The bounded rain request includes current and hourly `rain` plus `showers`, in
+millimetres with UTC Unix timestamps. Hourly amounts cover the preceding hour;
+current 15-minute amounts are converted to hourly rates. Rain checks run every
+five minutes and on normal/manual weather refreshes, with overlapping requests
+coalesced. See [Open-Meteo's current conditions and hourly definitions](https://open-meteo.com/en/docs).
+
+Dry, missing, malformed, failed or expired rain reports hide the entire curve
+and release its layout space. Future rain alone and pure snow do not enable it.
+The current report must be no older than 20 minutes and the last successful
+request no older than 15 minutes. Current conditions are weather-model estimates,
+not a rain sensor on the frame. `--demo --preview-rain` shows a clearly fictional
+wet example; the ordinary partly-cloudy demo keeps the curve hidden. Numeric
+rainfall rates remain available to assistive technology.
 
 ## Family briefing
 

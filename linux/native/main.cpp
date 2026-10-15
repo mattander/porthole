@@ -111,6 +111,7 @@ class Dashboard : public QWidget {
     QDateTime lastWeather;
     QDate sunDate;
     quint64 weatherGeneration=0;
+    QPointer<QNetworkReply> rainRequest;
 public:
     bool previewLayoutFits()const{
         const auto fail=[this](const char *reason){QTextStream(stderr)<<reason<<" conditions="<<conditions->x()<<","<<conditions->y()<<","<<conditions->width()<<","<<conditions->height()<<" briefing="<<briefing->x()<<","<<briefing->y()<<","<<briefing->width()<<","<<briefing->height()<<" agenda="<<agenda->x()<<","<<agenda->y()<<","<<agenda->width()<<","<<agenda->height()<<"\n";return false;};
@@ -157,7 +158,7 @@ public:
         connect(&updates,&UpdateClient::changed,this,[this]{syncSettings();});
         connect(&caldav,&CalendarClient::profileChanged,this,[this](const QJsonObject &){
             if(demo)return;
-            ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();lastWeather={};sunDate={};weatherStale=false;loadSunSchedule();
+            ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();rainRequest=nullptr;lastWeather={};sunDate={};weatherStale=false;loadSunSchedule();
             weatherLocation->setText(householdProfile().weather()?householdProfile().weather()->label():"Weather location");temperature->setText("—");weather->setText("Updating configured weather…");feels->clear();sunTimes->clear();currentIcon->setCode(-1);forecast->clear();rain->clear();
             events.clear();selectedDate=now().date();month=selectedDate;calendar->setSelectedDate(selectedDate);updateClock();caldav.fetch({},month);refreshWeather();syncSettings();
         });
@@ -201,6 +202,7 @@ public:
         auto *timer=new QTimer(this);connect(timer,&QTimer::timeout,this,[this]{updateClock();});timer->start(1000);
         auto *calendarTimer=new QTimer(this);connect(calendarTimer,&QTimer::timeout,this,[this]{if(!demo)caldav.requestStatus();});calendarTimer->start(60000);
         auto *weatherTimer=new QTimer(this);connect(weatherTimer,&QTimer::timeout,this,[this]{if(!demo)refreshWeather();});weatherTimer->start(15*60*1000);
+        auto *rainTimer=new QTimer(this);connect(rainTimer,&QTimer::timeout,this,[this]{if(!demo){if(online())fetchRain();else rain->clear();}});rainTimer->start(5*60*1000);
         QSettings preferences(preferencesPath(),QSettings::IniFormat);
         bool dark=preferences.value("display/darkMode",false).toBool();
         followSun=preferences.value("display/followSun",false).toBool();loadSunSchedule();
@@ -401,7 +403,7 @@ private:
     }
     void sampleData() {
         selected.clear();events.clear();demo=true;briefing->updateBriefing({},true);
-        ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();
+        ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();rainRequest=nullptr;
         const auto today=now().date();
         events<<Event{"sample-library","Library visit","Example: after school","Family",QDateTime(today,QTime(16,0),configuredZone()),QDateTime(today,QTime(17,0),configuredZone()),false,"sample-family","#AF52DE"};
         events<<Event{"sample-dinner","Dinner together","Example: at home","Home",QDateTime(today,QTime(18,30),configuredZone()),QDateTime(today,QTime(19,30),configuredZone()),false,"sample-home","#E7A82F"};
@@ -410,9 +412,11 @@ private:
         temperature->setText("14°");weather->setText("Partly cloudy");feels->setText("Feels like 12° · High 16° / Low 8°");weatherLocation->setText("Example City");currentIcon->setCode(2);sunDate=today;sunTimes->setText("Sunrise 7:35 AM · Sunset 6:35 PM");
         forecast->setForecast({{today.addDays(1),3,13,7},{today.addDays(2),61,12,5},{today.addDays(3),0,15,6}});
         events[0].description="Sample notes: Return the borrowed books at the desk.\nThe children’s section is upstairs.";
-        QJsonArray rainTimes,chances;const auto firstHour=now().toSecsSinceEpoch()/3600*3600;
-        for(int index=0;index<8;++index){rainTimes.append(firstHour+index*3600);chances.append(QList<int>{10,20,45,70,65,35,15,5}[index]);}
-        if(const auto hourly=RainForecast::parse({{"hourly_units",QJsonObject{{"time","unixtime"},{"precipitation_probability","%"}}},{"hourly",QJsonObject{{"time",rainTimes},{"precipitation_probability",chances}}}},now()))rain->setForecast(*hourly,now());
+        QJsonArray rainTimes,amounts,showers;const auto firstHour=now().toSecsSinceEpoch()/3600*3600;
+        for(int index=0;index<8;++index){rainTimes.append(firstHour+index*3600);amounts.append(QList<double>{0.5,1,2.5,5,3,1,0.2,0}[index]);showers.append(0);}
+        const bool wet=qApp->arguments().contains("--preview-rain");
+        if(wet){weather->setText("Rain");currentIcon->setCode(61);}
+        if(const auto hourly=RainForecast::parse({{"current_units",QJsonObject{{"time","unixtime"},{"interval","seconds"},{"rain","mm"},{"showers","mm"}}},{"current",QJsonObject{{"time",now().toSecsSinceEpoch()/900*900},{"interval",900},{"rain",wet?0.25:0},{"showers",0}}},{"hourly_units",QJsonObject{{"time","unixtime"},{"rain","mm"},{"showers","mm"}}},{"hourly",QJsonObject{{"time",rainTimes},{"rain",amounts},{"showers",showers}}}},now()))rain->setForecast(*hourly,now());
         if(qApp->arguments().contains("--emoji-preview")){
             events[0].title="Library visit 📚 🇨🇦";events[1].title="Dinner together 🥘 👨‍👩‍👧‍👦";
             briefing->updateBriefing({{"enabled",true},{"text","Sample: Café plans ☕ and soccer ⚽. Family dinner 🥘 👨‍👩‍👧‍👦, a thumbs-up 👍🏽, a health visit 👩🏽‍⚕️, and a Canadian flag 🇨🇦."}});
@@ -452,20 +456,22 @@ private:
     }
     void refreshWeather(){
         if(demo)return;
-        if(online()){fetchWeather();fetchRain();}else{rain->setStale(true);weatherStale=true;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);weatherStatus=lastWeather.isValid()?"Weather is stale · frame offline":"Weather unavailable · frame offline";}
+        if(online()){fetchWeather();fetchRain();}else{rain->clear();weatherStale=true;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);weatherStatus=lastWeather.isValid()?"Weather is stale · frame offline":"Weather unavailable · frame offline";}
         renderStatus();
     }
     void fetchRain(){
-        const auto url=weatherRainUrl(householdProfile());if(!url){rain->setStale(true);return;}
+        if(rainRequest)return;
+        const auto url=weatherRainUrl(householdProfile());if(!url){rain->clear();return;}
         QNetworkRequest request(*url);request.setTransferTimeout(15000);request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
-        auto *reply=weatherNetwork.get(request);const auto token=weatherGeneration;
+        auto *reply=weatherNetwork.get(request);rainRequest=reply;const auto token=weatherGeneration;
         connect(reply,&QNetworkReply::readyRead,this,[reply]{if(reply->bytesAvailable()>16384)reply->abort();});
         connect(reply,&QNetworkReply::finished,this,[this,reply,token]{
+            if(rainRequest==reply)rainRequest=nullptr;
             reply->deleteLater();if(token!=weatherGeneration)return;
-            if(reply->error()!=QNetworkReply::NoError||reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200||reply->bytesAvailable()>16384){rain->setStale(true);return;}
+            if(reply->error()!=QNetworkReply::NoError||reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200||reply->bytesAvailable()>16384){rain->clear();return;}
             QJsonParseError error;const auto doc=QJsonDocument::fromJson(reply->readAll(),&error);
             const auto forecast=error.error==QJsonParseError::NoError&&doc.isObject()?RainForecast::parse(doc.object(),now()):std::nullopt;
-            if(forecast)rain->setForecast(*forecast,now());else rain->setStale(true);
+            if(forecast)rain->setForecast(*forecast,now());else rain->clear();
         });
     }
     void fetchWeather() {

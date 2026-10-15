@@ -55,7 +55,7 @@ std::optional<QUrl> weatherRainUrl(const HouseholdProfile &profile){
     const auto configured=weatherForecastUrl(profile);if(!configured)return std::nullopt;
     QUrl url("https://api.open-meteo.com/v1/forecast");QUrlQuery existing(*configured),query;
     for(const auto &name:{"latitude","longitude"})query.addQueryItem(name,existing.queryItemValue(name));
-    query.addQueryItem("hourly","precipitation_probability");query.addQueryItem("forecast_hours","8");
+    query.addQueryItem("current","rain,showers");query.addQueryItem("hourly","rain,showers");query.addQueryItem("forecast_hours","8");
     query.addQueryItem("timeformat","unixtime");query.addQueryItem("timezone","UTC");url.setQuery(query);return url;
 }
 std::variant<HouseholdProfile,ProfileError> loadProfile(const QString &path){
