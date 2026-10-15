@@ -15,7 +15,7 @@ protected:
     void paintEvent(QPaintEvent *)override;
 private:
     QString digits="—:—",period;
-    int pixels=160;
+    int pixels=120;
     QFont timeFont()const;
     QFont periodFont()const;
 };
@@ -50,6 +50,22 @@ protected:
 private:
     int issues=0;
 };
+class CalendarButton:public QPushButton {
+public:
+    explicit CalendarButton(QWidget *parent=nullptr);
+protected:
+    void paintEvent(QPaintEvent *event)override;
+};
+class AgendaDays:public QWidget {
+    Q_OBJECT
+public:
+    explicit AgendaDays(QWidget *parent=nullptr);
+    void setView(int view);
+signals:
+    void viewRequested(int view);
+private:
+    QPushButton *days[2];
+};
 class DashboardFooter:public QWidget {
     Q_OBJECT
 public:
@@ -63,5 +79,5 @@ signals:
 private:
     QLabel *updated;
     GearButton *gear;
-    QPushButton *tabs[3];
+    CalendarButton *calendar;
 };

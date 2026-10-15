@@ -106,11 +106,12 @@ private slots:
     }
     void requestSourcesArePrivateCapturedAndLocallyRefreshed(){
         QTemporaryDir directory;const auto path=directory.filePath("state");FixtureNetwork network;network.hold=true;
-        auto original=events().first();original.calendarId="source-a";original.colour="#123456";
+        auto original=events().first();original.calendarId="source-a";original.colour="#123456";original.description="Private event notes stay out of the AI request";
         network.resultSegments={QJsonObject{{"text","<b>Soccer</b>"},{"event_refs",QJsonArray{"e1"}}},QJsonObject{{"text"," is at 10."},{"event_refs",QJsonArray{}}}};
         BriefingEngine engine(path,"sk-"+QByteArray(40,'a'),nullptr,&network,[]{return now();});
         engine.configure(true,"",100);engine.calendarData({original},now());engine.weatherData(weather());QTRY_COMPARE(network.requests,1);QVERIFY(network.pending);
         const auto input=network.sent["input"].toString();QVERIFY(input.contains("\"event_ref\":\"e1\""));QVERIFY(!input.contains("private-id"));QVERIFY(!input.contains("source-a"));QVERIFY(!input.contains("#123456"));
+        QVERIFY(!input.contains(original.description));
         auto foreign=original;foreign.calendarId="source-b";foreign.colour="#654321";engine.calendarData({foreign},now());QCOMPARE(network.requests,1);
         network.pending->finish();QTRY_COMPARE(engine.snapshot()["text"].toString(),QString("<b>Soccer</b> is at 10."));
         auto snapshot=engine.snapshot();const auto segment=snapshot["segments"].toArray().first().toObject();

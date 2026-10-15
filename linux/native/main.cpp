@@ -9,6 +9,8 @@
 #include "briefing-widget.h"
 #include "calendar-style.h"
 #include "dashboard-widgets.h"
+#include "event-widgets.h"
+#include "rain-forecast.h"
 #include "diagnostics.h"
 #include <QTabWidget>
 #include "wifi.h"
@@ -48,6 +50,13 @@
 #include <algorithm>
 
 namespace {
+// Columns reserve their child minimums; wrapped-label height hints must not
+// shrink fixed panels or force a scrollable agenda to take the whole screen.
+class DashboardColumnLayout:public QVBoxLayout {
+public:
+    explicit DashboardColumnLayout(QWidget *parent):QVBoxLayout(parent){}
+    bool hasHeightForWidth()const override{return false;}
+};
 QDateTime now() { return QDateTime::currentDateTimeUtc().toTimeZone(configuredZone()); }
 bool online() {
     for (const auto &i : QNetworkInterface::allInterfaces())
@@ -79,7 +88,7 @@ class Dashboard : public QWidget {
     bool demo=false;
     bool darkTheme=false,followSun=false;
     SunThemeSchedule sunSchedule;
-    int view=0;
+    int view=0,lastDayView=0;
     QString calendarStatus="iCloud is not connected";
     QString weatherStatus="Weather is not connected";
     ClockFace *clock=new ClockFace;
@@ -90,8 +99,10 @@ class Dashboard : public QWidget {
     bool weatherStale=false,hadWifi=false;
     QDateTime lastCalendar,lastSummary;
     QLabel *weatherLocation=label("Weather location",21);
-    QLabel *temperature=label("—",91), *weather=label("Weather is not connected",18),*feels=label("",15),*sunTimes=label("",14);
+    QLabel *temperature=label("—",70), *weather=label("Weather is not connected",18),*feels=label("",15),*sunTimes=label("",14);
     ForecastStrip *forecast=new ForecastStrip;
+    RainStrip *rain=new RainStrip;
+    AgendaDays *dayTabs=new AgendaDays;
     QLabel *heading=label("Today",40), *caption=label("",17);
     QWidget *conditions=new QWidget,*agenda=new QWidget,*eventList=new QWidget;
     QBoxLayout *board=new QHBoxLayout;
@@ -101,17 +112,27 @@ class Dashboard : public QWidget {
     QDate sunDate;
     quint64 weatherGeneration=0;
 public:
+    bool previewLayoutFits()const{
+        const auto fail=[this](const char *reason){QTextStream(stderr)<<reason<<" conditions="<<conditions->x()<<","<<conditions->y()<<","<<conditions->width()<<","<<conditions->height()<<" briefing="<<briefing->x()<<","<<briefing->y()<<","<<briefing->width()<<","<<briefing->height()<<" agenda="<<agenda->x()<<","<<agenda->y()<<","<<agenda->width()<<","<<agenda->height()<<"\n";return false;};
+        if(conditions->isVisible()&&!conditions->rect().contains(briefing->geometry()))return fail("Briefing clipped");
+        if(conditions->isVisible()&&conditions->geometry().intersects(agenda->geometry()))return fail("Agenda overlap");
+        if(!rect().contains(footer->geometry()))return fail("Footer clipped");
+        if(!rect().contains(QRect(agenda->mapTo(this,QPoint()),agenda->size())))return fail("Agenda clipped");
+        if(auto *key=briefing->findChild<QWidget*>("briefingKeyArea"))if(key->isVisible()&&!briefing->rect().contains(key->geometry()))return fail("Briefing key clipped");
+        return true;
+    }
     explicit Dashboard(bool sample) {
         setWindowTitle("Porthole");setMinimumSize(640,600);
         caption->setProperty("tone","secondary");feels->setProperty("tone","secondary");sunTimes->setProperty("tone","secondary");
         auto *root=new QVBoxLayout(this);root->setContentsMargins(32,30,32,18);root->setSpacing(20);
-        auto *left=new QVBoxLayout(conditions);left->setContentsMargins(0,0,0,0);left->setSpacing(14);
-        left->addWidget(clock);left->addWidget(date);left->addSpacing(9);
-        auto *divider=new QFrame;divider->setFrameShape(QFrame::HLine);divider->setFixedHeight(1);left->addWidget(divider);left->addSpacing(5);
+        auto *left=new DashboardColumnLayout(conditions);left->setContentsMargins(0,0,0,0);left->setSpacing(6);
+        left->addWidget(clock);left->addWidget(date);left->addSpacing(7);
+        auto *divider=new QFrame;divider->setFrameShape(QFrame::HLine);divider->setFixedHeight(1);left->addWidget(divider);left->addSpacing(3);
         auto *current=new QHBoxLayout;current->setSpacing(18);current->addWidget(currentIcon);current->addWidget(temperature);
         auto *weatherCopy=new QVBoxLayout;weatherCopy->setSpacing(5);weatherCopy->addWidget(weatherLocation);weatherCopy->addWidget(weather);weatherCopy->addWidget(feels);weatherCopy->addWidget(sunTimes);current->addLayout(weatherCopy,1);left->addLayout(current);
-        left->addSpacing(7);left->addWidget(forecast);left->addSpacing(22);left->addWidget(briefing);left->addStretch();
-        auto *right=new QVBoxLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(heading);right->addWidget(caption);
+        left->addWidget(rain);left->addWidget(forecast);left->addSpacing(4);left->addWidget(briefing);left->addStretch();
+        agenda->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Ignored);
+        auto *right=new DashboardColumnLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(dayTabs);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
         QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);right->addWidget(scroll,1);
         eventLayout->setContentsMargins(0,0,8,0);eventLayout->setSpacing(26);eventLayout->setAlignment(Qt::AlignTop);
@@ -130,13 +151,14 @@ public:
         board->addWidget(conditions,55);board->addWidget(calendar,55);board->addWidget(agenda,45);
         root->addLayout(board,1);
         root->addWidget(footer);
-        connect(footer,&DashboardFooter::viewRequested,this,&Dashboard::changeView);
+        connect(dayTabs,&AgendaDays::viewRequested,this,&Dashboard::changeView);
+        connect(footer,&DashboardFooter::viewRequested,this,[this](int next){changeView(next==2&&view==2?lastDayView:next);});
         connect(footer,&DashboardFooter::settingsRequested,this,&Dashboard::showSettings);
         connect(&updates,&UpdateClient::changed,this,[this]{syncSettings();});
         connect(&caldav,&CalendarClient::profileChanged,this,[this](const QJsonObject &){
             if(demo)return;
             ++weatherGeneration;for(auto *reply:weatherNetwork.findChildren<QNetworkReply*>())reply->abort();lastWeather={};sunDate={};weatherStale=false;loadSunSchedule();
-            weatherLocation->setText(householdProfile().weather()?householdProfile().weather()->label():"Weather location");temperature->setText("—");weather->setText("Updating configured weather…");feels->clear();sunTimes->clear();currentIcon->setCode(-1);forecast->clear();
+            weatherLocation->setText(householdProfile().weather()?householdProfile().weather()->label():"Weather location");temperature->setText("—");weather->setText("Updating configured weather…");feels->clear();sunTimes->clear();currentIcon->setCode(-1);forecast->clear();rain->clear();
             events.clear();selectedDate=now().date();month=selectedDate;calendar->setSelectedDate(selectedDate);updateClock();caldav.fetch({},month);refreshWeather();syncSettings();
         });
         connect(&caldav,&CalendarClient::profileFailed,this,[this](const QString &message){QWidget *parent=this;if(settings)parent=settings.data();QMessageBox::warning(parent,"Settings not saved",message);});
@@ -216,6 +238,7 @@ protected:
         board->setStretchFactor(conditions,portrait?0:55);
         board->setStretchFactor(calendar,portrait?1:55);
         board->setStretchFactor(agenda,portrait?1:45);
+
     }
 private:
     QJsonObject diagnosticState()const {
@@ -258,7 +281,7 @@ private:
         SettingsPane pane(&wifi,actions,this);settings=&pane;syncSettings();pane.exec();settings=nullptr;
     }
     void useLiveData() {
-        if(demo){demo=false;events.clear();lastCalendar=caldav.lastChecked();lastWeather={};lastSummary=QDateTime::fromString(latestBriefing["generated"].toString(),Qt::ISODate);weatherStale=false;calendarStatus="iCloud is not connected";temperature->setText("—");weather->setText("Connecting weather…");currentIcon->setCode(-1);feels->clear();sunTimes->clear();forecast->clear();}
+        if(demo){demo=false;events.clear();lastCalendar=caldav.lastChecked();lastWeather={};lastSummary=QDateTime::fromString(latestBriefing["generated"].toString(),Qt::ISODate);weatherStale=false;calendarStatus="iCloud is not connected";temperature->setText("—");weather->setText("Connecting weather…");currentIcon->setCode(-1);feels->clear();sunTimes->clear();forecast->clear();rain->clear();}
         loadSunSchedule();applySunTheme();briefing->updateBriefing(latestBriefing);caldav.reload();refreshData();renderAgenda();markDates();
     }
     static QString preferencesPath() {
@@ -317,6 +340,8 @@ private:
             "QPushButton {border:1px solid %3;border-radius:4px;padding:6px 16px;} "
             "QPushButton:checked {background:%7;color:%8;border-color:%7;} QPushButton:pressed {background:%9;} "
             "QPushButton:disabled {color:%5;} QLineEdit {background:%4;border:1px solid %5;padding:8px;selection-background-color:%7;selection-color:%8;} "
+            "QPushButton#agendaDayTab {background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;padding:4px 8px;color:%5;} "
+            "QPushButton#agendaDayTab:checked {background:transparent;border-bottom:3px solid %6;color:%2;} QPushButton#agendaDayTab:pressed {background:%9;} "
             "QScrollArea {border:0;} QFrame[frameShape=\"4\"] {color:%3;} "
             "QWidget#agendaEvent {border-left:3px solid %6;} QLabel#aiBadge {border:1px solid %3;border-radius:2px;padding:1px;} "
             "QCalendarWidget QToolButton {min-height:44px;font-size:22px;} "
@@ -331,7 +356,7 @@ private:
     }
     void updateClock() {
         const auto time=now();if(sunDate.isValid()&&sunDate!=time.date()){sunDate={};sunTimes->setText("Sunrise / sunset updating…");if(!demo)refreshWeather();}
-        clock->setTime(time.time());date->setText(time.toString("dddd, MMMM d"));applySunTheme();
+        clock->setTime(time.time());date->setText(time.toString("dddd, MMMM d"));rain->setTime(time);applySunTheme();
         if(view<2&&selectedDate!=time.date().addDays(view)){selectedDate=time.date().addDays(view);if(!demo)refreshCalendar();renderAgenda();}
     }
     void renderStatus() {
@@ -339,28 +364,26 @@ private:
         footer->setIssueCount(diagnostics.activeCount());syncSettings();
     }
     void changeView(int next) {
-        view=next;footer->setView(view);
+        if(next<0||next>2)return;
+        view=next;if(view<2)lastDayView=view;footer->setView(view);dayTabs->setView(view);
         conditions->setVisible(view!=2);calendar->setVisible(view==2);
         selectedDate=view==2?calendar->selectedDate():now().date().addDays(view);
-        if(view<2&&!demo&&!selected.isEmpty())caldav.fetch(selected,selectedDate);
+        if(!demo&&!selected.isEmpty())caldav.fetch(selected,view==2?month:selectedDate);
         renderAgenda();
     }
     void renderAgenda() {
         while(auto *item=eventLayout->takeAt(0)){delete item->widget();delete item;}
-        heading->setText(view==0?"Today":view==1?"Tomorrow":selectedDate.toString("ddd, MMM d"));
+        heading->setVisible(view==2);heading->setText(selectedDate.toString("ddd, MMM d"));
         int count=0;
         for(const auto &event:events){
             if(!event.onDate(selectedDate))continue;
             ++count;
-            auto *box=new QWidget;auto *layout=new QVBoxLayout(box);layout->setContentsMargins(16,2,0,8);
-            box->setObjectName("agendaEvent");
-            if(const auto colour=calendarSourceColour(event.colour)){
-                const auto bar=compositeCalendarColour(*colour,palette().color(QPalette::Window));
-                box->setStyleSheet("QWidget#agendaEvent {border-left:5px solid "+bar.name()+";}");
-            }
-            auto *metadata=label(event.timeLabel()+" · "+event.calendar,16);metadata->setProperty("tone","secondary");layout->addWidget(metadata);
-            layout->addWidget(label(event.title,28));
-            if(!event.location.isEmpty()){auto *place=label(event.location,16);place->setProperty("tone","secondary");layout->addWidget(place);}
+            auto *box=new EventCard(event);
+            connect(box,&QPushButton::clicked,this,[this,event]{
+                auto *dialog=new EventDetails(event,this);dialog->setAttribute(Qt::WA_DeleteOnClose);
+                dialog->resize(qMin(width()-48,900),qMin(height()-48,850));dialog->open();
+                QPointer<EventDetails> target(dialog);caldav.eventDetails(event,[target](std::optional<Event> details){if(target)target->setDetails(details);});
+            });
             eventLayout->addWidget(box);
         }
         caption->setText(QString::number(count)+(count==1?" event":" events")+(view==0?" today":view==1?" tomorrow":" on this day"));
@@ -385,6 +408,10 @@ private:
         calendarStatus="Sample calendar · iCloud is not connected";weatherStatus="Sample forecast · not live weather";
         temperature->setText("14°");weather->setText("Partly cloudy");feels->setText("Feels like 12° · High 16° / Low 8°");weatherLocation->setText("Example City");currentIcon->setCode(2);sunDate=today;sunTimes->setText("Sunrise 7:35 AM · Sunset 6:35 PM");
         forecast->setForecast({{today.addDays(1),3,13,7},{today.addDays(2),61,12,5},{today.addDays(3),0,15,6}});
+        events[0].description="Sample notes: Return the borrowed books at the desk.\nThe children’s section is upstairs.";
+        QJsonArray rainTimes,chances;const auto firstHour=now().toSecsSinceEpoch()/3600*3600;
+        for(int index=0;index<8;++index){rainTimes.append(firstHour+index*3600);chances.append(QList<int>{10,20,45,70,65,35,15,5}[index]);}
+        if(const auto hourly=RainForecast::parse({{"hourly_units",QJsonObject{{"time","unixtime"},{"precipitation_probability","%"}}},{"hourly",QJsonObject{{"time",rainTimes},{"precipitation_probability",chances}}}},now()))rain->setForecast(*hourly,now());
         if(qApp->arguments().contains("--emoji-preview")){
             events[0].title="Library visit 📚 🇨🇦";events[1].title="Dinner together 🥘 👨‍👩‍👧‍👦";
             briefing->updateBriefing({{"enabled",true},{"text","Sample: Café plans ☕ and soccer ⚽. Family dinner 🥘 👨‍👩‍👧‍👦, a thumbs-up 👍🏽, a health visit 👩🏽‍⚕️, and a Canadian flag 🇨🇦."}});
@@ -424,8 +451,21 @@ private:
     }
     void refreshWeather(){
         if(demo)return;
-        if(online())fetchWeather();else{weatherStale=true;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);weatherStatus=lastWeather.isValid()?"Weather is stale · frame offline":"Weather unavailable · frame offline";}
+        if(online()){fetchWeather();fetchRain();}else{rain->setStale(true);weatherStale=true;diagnostics.fail(DataSource::Weather,IssueCode::WeatherUnavailable);weatherStatus=lastWeather.isValid()?"Weather is stale · frame offline":"Weather unavailable · frame offline";}
         renderStatus();
+    }
+    void fetchRain(){
+        const auto url=weatherRainUrl(householdProfile());if(!url){rain->setStale(true);return;}
+        QNetworkRequest request(*url);request.setTransferTimeout(15000);request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);
+        auto *reply=weatherNetwork.get(request);const auto token=weatherGeneration;
+        connect(reply,&QNetworkReply::readyRead,this,[reply]{if(reply->bytesAvailable()>16384)reply->abort();});
+        connect(reply,&QNetworkReply::finished,this,[this,reply,token]{
+            reply->deleteLater();if(token!=weatherGeneration)return;
+            if(reply->error()!=QNetworkReply::NoError||reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt()!=200||reply->bytesAvailable()>16384){rain->setStale(true);return;}
+            QJsonParseError error;const auto doc=QJsonDocument::fromJson(reply->readAll(),&error);
+            const auto forecast=error.error==QJsonParseError::NoError&&doc.isObject()?RainForecast::parse(doc.object(),now()):std::nullopt;
+            if(forecast)rain->setForecast(*forecast,now());else rain->setStale(true);
+        });
     }
     void fetchWeather() {
         const auto configured=weatherForecastUrl(householdProfile());
@@ -483,10 +523,15 @@ int main(int argc,char **argv) {
         }
     }
     if(app.arguments().contains("--demo")&&app.arguments().contains("--preview-google"))QTimer::singleShot(700,&app,[]{if(auto *window=QApplication::activeModalWidget())for(auto *tabs:window->findChildren<QTabWidget*>())for(int i=0;i<tabs->count();++i)if(tabs->tabText(i)=="Google")tabs->setCurrentIndex(i);});
+    if(app.arguments().contains("--demo")&&app.arguments().contains("--preview-tomorrow"))QTimer::singleShot(0,&dashboard,[&dashboard]{for(auto *button:dashboard.findChildren<QPushButton*>("agendaDayTab"))if(button->property("day").toInt()==1)button->click();});
+    if(app.arguments().contains("--demo")&&app.arguments().contains("--preview-event-details"))QTimer::singleShot(100,&dashboard,[&dashboard]{if(auto *event=dashboard.findChild<EventCard*>())event->click();});
     const auto capture=app.arguments().indexOf("--capture");
     if(app.arguments().contains("--demo")&&capture>=0&&capture+1<app.arguments().size()){
         const auto path=app.arguments()[capture+1];
-        QTimer::singleShot(1500,&app,[&dashboard,&app,path]{auto *window=QApplication::activeModalWidget();app.exit((window?window:static_cast<QWidget*>(&dashboard))->grab().save(path)?0:1);});
+        QTimer::singleShot(1500,&app,[&dashboard,&app,path]{
+            if(!dashboard.previewLayoutFits()){QTextStream(stderr)<<"Preview layout is clipped; capture refused.\n";app.exit(2);return;}
+            QWidget *window=QApplication::activeModalWidget();if(!window)window=&dashboard;app.exit(window->grab().save(path)?0:1);
+        });
     }
     return app.exec();
 }

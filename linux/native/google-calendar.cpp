@@ -33,7 +33,8 @@ std::optional<QList<Event>> parseGoogleEvents(const QJsonObject &page,const Cale
         const auto start=googleTime(e["start"].toObject()),end=googleTime(e["end"].toObject());
         const bool allDay=e["start"].toObject().contains("date");
         if(!e["id"].isString()||e["id"].toString().isEmpty()||e["id"].toString().size()>1024||!start.isValid()||!end.isValid()||end<=start||allDay!=e["end"].toObject().contains("date"))return std::nullopt;
-        result<<Event{"google:"+calendar.url.path()+":"+e["id"].toString(),e["summary"].toString("Untitled event").left(500),e["location"].toString().left(500),calendar.name,start,end,allDay,calendarIdentity(calendar),canonicalCalendarColour(calendar.colour)};
+        if(e.contains("description")&&!e["description"].isString())return std::nullopt;
+        result<<Event{"google:"+calendar.url.path()+":"+e["id"].toString(),e["summary"].toString("Untitled event").left(500),e["location"].toString().left(500),calendar.name,start,end,allDay,calendarIdentity(calendar),canonicalCalendarColour(calendar.colour),boundedEventDescription(e["description"].toString())};
     }
     return result;
 }
@@ -88,6 +89,6 @@ void GoogleCalendar::eventPage(QList<Calendar> calendars,int index,QDate month,Q
     if(pages>=10||events.size()>10000){fail("Google events exceeded the supported limit.");return;}
     if(index>=calendars.size()){busy=false;emit eventsReady(events,month);return;}
     const auto c=calendars[index];QUrl url("https://www.googleapis.com/calendar/v3/calendars/"+QString::fromLatin1(QUrl::toPercentEncoding(c.url.path().mid(1)))+"/events");
-    QUrlQuery query;query.addQueryItem("timeMin",QDateTime(month,QTime(0,0),configuredZone()).toString(Qt::ISODate));query.addQueryItem("timeMax",QDateTime(month.addMonths(1).addDays(4),QTime(0,0),configuredZone()).toString(Qt::ISODate));query.addQueryItem("timeZone",QString::fromUtf8(configuredZone().id()));query.addQueryItem("singleEvents","true");query.addQueryItem("orderBy","startTime");query.addQueryItem("maxResults","2500");query.addQueryItem("fields","items(id,status,summary,location,start,end),nextPageToken");if(!page.isEmpty())query.addQueryItem("pageToken",page);url.setQuery(query);
+    QUrlQuery query;query.addQueryItem("timeMin",QDateTime(month,QTime(0,0),configuredZone()).toString(Qt::ISODate));query.addQueryItem("timeMax",QDateTime(month.addMonths(1).addDays(4),QTime(0,0),configuredZone()).toString(Qt::ISODate));query.addQueryItem("timeZone",QString::fromUtf8(configuredZone().id()));query.addQueryItem("singleEvents","true");query.addQueryItem("orderBy","startTime");query.addQueryItem("maxResults","2500");query.addQueryItem("fields","items(id,status,summary,location,description,start,end),nextPageToken");if(!page.isEmpty())query.addQueryItem("pageToken",page);url.setQuery(query);
     request(url,{},[this,calendars,index,month,events,pages,c](const QJsonObject &value)mutable{const auto parsed=parseGoogleEvents(value,c);if(!parsed){fail("Google event dates could not be read.");return;}events.append(*parsed);const auto next=value["nextPageToken"].toString();if(next.size()>2048){fail("Google events could not be read.");return;}eventPage(calendars,next.isEmpty()?index+1:index,month,next,events,next.isEmpty()?0:pages+1);});
 }

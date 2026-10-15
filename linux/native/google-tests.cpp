@@ -2,6 +2,7 @@
 #include "profile.h"
 #include "calendar-sources.h"
 #include <QJsonDocument>
+#include <QJsonArray>
 #include <QNetworkReply>
 #include <QSignalSpy>
 #include <QTimer>
@@ -41,6 +42,8 @@ private slots:
     void datesAndExclusiveEnd(){
         const Calendar c{googleCalendarUrl("fixture"),"Fixture","#aBcDeF"};const auto page=QJsonDocument::fromJson(R"({"items":[{"id":"a","start":{"date":"2026-10-16"},"end":{"date":"2026-10-17"}}]})").object();const auto events=parseGoogleEvents(page,c);QVERIFY(events);QCOMPARE(events->size(),1);QVERIFY(events->first().onDate(QDate(2026,10,16)));QVERIFY(!events->first().onDate(QDate(2026,10,15)));QVERIFY(!events->first().onDate(QDate(2026,10,17)));QCOMPARE(events->first().colour,QString("#ABCDEF"));QCOMPARE(events->first().calendarId,calendarIdentity(c));
         QVERIFY(!parseGoogleEvents(QJsonDocument::fromJson(R"({"items":[{"id":"a","start":{"dateTime":"2026-10-16T10:00:00"},"end":{"dateTime":"2026-10-16T11:00:00"}}]})").object(),c));
+        auto withNotes=page;auto items=page["items"].toArray();auto item=items.first().toObject();item["description"]="Example notes\nBring a book 📚";items[0]=item;withNotes["items"]=items;
+        const auto notes=parseGoogleEvents(withNotes,c);QVERIFY(notes);QCOMPARE(notes->first().description,item["description"].toString());
     }
     void calendarListColoursAreValidated(){
         GoogleTransport network;network.calendarListBody=R"({"items":[{"id":"one@example.invalid","summary":"Same","backgroundColor":"#a1b2c3"},{"id":"two@example.invalid","summary":"Same"},{"id":"three@example.invalid","summary":"Other","backgroundColor":"not-a-colour"}]})";

@@ -184,6 +184,7 @@ private:
             const auto kind=request["type"].toString();
             if(kind=="ping")reply={{"ok",true},{"instance",instance}};
             else if(kind=="status")reply=snapshot(request["eventsRevision"].toInteger(-1));
+            else if(kind=="eventDetails")reply=calendarEventDetailsJson(events+googleEvents,request["reference"].toString());
             else if(kind=="login"){
                 const auto email=request["account"].toString();const auto secret=request["password"].toString().toLatin1();
                 if(!validAccount(email,secret))reply={{"error","Use your Apple Account email and dedicated app-specific password."}};

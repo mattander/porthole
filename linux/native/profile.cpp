@@ -51,6 +51,13 @@ std::optional<QUrl> weatherForecastUrl(const HouseholdProfile &profile){
     query.addQueryItem("current","temperature_2m,apparent_temperature,weather_code");query.addQueryItem("daily","weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset");
     query.addQueryItem("timezone",QString::fromUtf8(profile.zone().id()));query.addQueryItem("forecast_days","4");url.setQuery(query);return url;
 }
+std::optional<QUrl> weatherRainUrl(const HouseholdProfile &profile){
+    const auto configured=weatherForecastUrl(profile);if(!configured)return std::nullopt;
+    QUrl url("https://api.open-meteo.com/v1/forecast");QUrlQuery existing(*configured),query;
+    for(const auto &name:{"latitude","longitude"})query.addQueryItem(name,existing.queryItemValue(name));
+    query.addQueryItem("hourly","precipitation_probability");query.addQueryItem("forecast_hours","8");
+    query.addQueryItem("timeformat","unixtime");query.addQueryItem("timezone","UTC");url.setQuery(query);return url;
+}
 std::variant<HouseholdProfile,ProfileError> loadProfile(const QString &path){
     QFile file(path);if(!file.exists())return HouseholdProfile();if(!file.open(QIODevice::ReadOnly)||file.size()>16384)return ProfileError::Read;
     QJsonParseError error;const auto doc=QJsonDocument::fromJson(file.readAll(),&error);if(error.error!=QJsonParseError::NoError||!doc.isObject())return ProfileError::Schema;return HouseholdProfile::parse(doc.object());

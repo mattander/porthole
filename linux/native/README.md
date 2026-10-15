@@ -1,6 +1,6 @@
 # Porthole native Linux app
 
-An original C++/Qt Widgets application for the PF1007L's SD-only Linux system. The clock, weather, and bounded family briefing sit beside the agenda in landscape and stack in portrait. Widgets render without a browser or embedded web engine. The bottom bar places successful iCloud, weather, and summary update times on the left, aligned to the bottom of the Today/Tomorrow/Calendar controls and Settings gear on the right. Settings opens Wi-Fi, iCloud, Display, Data, AI, and Errors & debugging panes. Display → Light / Dark switches the complete native UI and saves the appearance choice in `~/.config/porthole/preferences.ini`; this file contains display preferences, not credentials. Sway and the physically verified sensor/touch services handle orientation.
+An original C++/Qt Widgets application for the PF1007L's SD-only Linux system. The clock, weather, and bounded family briefing sit beside the agenda in landscape and stack in portrait. Widgets render without a browser or embedded web engine. The bottom bar places successful iCloud, weather, and summary update times on the left, aligned to a calendar icon and Settings gear on the right. Today and Tomorrow are large, tappable headings above the agenda; the calendar icon opens the month view and returns to the previously selected day view when tapped again. Settings opens Wi-Fi, iCloud, Display, Data, AI, and Errors & debugging panes. Display → Light / Dark switches the complete native UI and saves the appearance choice in `~/.config/porthole/preferences.ini`; this file contains display preferences, not credentials. Sway and the physically verified sensor/touch services handle orientation.
 
 The direct iCloud connector uses HTTPS CalDAV discovery and read-only PROPFIND/REPORT requests. It sends an app-specific password only to the allowed iCloud CalDAV service hosts, validates TLS normally, checks redirects before forwarding authorization, and bounds responses. Settings → Calendars → iCloud opens the native sign-in form, with a touch keyboard, Show password toggle and Remember this account option. Change calendars, Replace password and Forget account provide account management. Remember this account is selected by default. After successful discovery and calendar selection, the separate calendar service saves an encrypted credential using systemd, restores the account and selection after restart, and exposes calendar data to the restricted dashboard through a local Unix socket. Calendar events remain in memory; no event cache is written. See [persistent account storage](../account/README.md) for the permission boundaries and removable-SD security limit.
 
@@ -53,6 +53,38 @@ Wi-Fi discovery, power, scan, connect and agent registration use asynchronous D-
 
 The `wifi-ui-responsiveness` test uses a private D-Bus daemon and a deliberately delayed fake iwd service. It checks both typing during delayed discovery and typing while a connection awaits the password agent, without accessing a real Wi-Fi profile or joining a network. This test also passed on the physical PF1007L; its maximum sampled UI timer gap was 192 ms, including first dialog creation. This establishes event-loop responsiveness under that fixture, not a human touch-input check.
 
+## Agenda and event details
+
+Tap Today or Tomorrow above the agenda to switch its date; these controls also
+return from month browsing. The calendar icon in the bottom tray toggles the month
+view. Event rows are native buttons with full-row touch targets and keyboard
+activation. Tapping a row opens a scrollable detail panel with its title, date/time
+range, calendar, location and notes, plus a large Close control. All-day ranges
+respect the provider's exclusive end date.
+
+Calendar descriptions are bounded without splitting emoji and remain plain text.
+Routine status replies exclude notes. A separate, bounded local request loads one
+event's details using an opaque occurrence reference; changed/unavailable events
+show a retry message. Notes are not included in AI briefing requests.
+
+`--demo --preview-tomorrow` selects the second heading;
+`--demo --preview-event-details` opens a fictional event. Demo captures reject
+a clipped briefing, overlapping agenda or off-screen footer.
+
+## Hourly precipitation
+
+A compact six-column strip shows the current hour and following five hourly
+precipitation chances alongside the existing three-day forecast. Percentages cover
+rain and snow; they are not a guarantee that rain starts at a particular minute.
+The existing Open-Meteo provider supplies a separate bounded hourly response every
+15 minutes. See its [hourly probability and timestamp definitions](https://open-meteo.com/en/docs#hourly-parameter-definition).
+
+Hourly probabilities refer to the interval preceding each returned timestamp.
+Requests use Unix timestamps in UTC; labels convert to the configured timezone,
+including daylight-saving transitions. Missing, malformed and expired data never
+become zero-percent forecasts. A failed refresh retains an available forecast with
+a saved-data label; old or incomplete hourly coverage displays unavailable.
+
 ## Family briefing
 
 The AI briefing sits below the weather in a fixed-height area. It has a backend
@@ -73,7 +105,8 @@ transferred over USB; see [AI setup](../ai/README.md).
 The clock paints 12-hour time and AM/PM on a shared baseline. Weather icons cover
 today and the next three days; an unknown or invalid forecast keeps the previous
 data and records a fixed diagnostic message. The app name and timezone subtitle
-are removed. All navigation controls share one bottom row in both orientations.
+are removed. Today/Tomorrow controls sit above the agenda; the calendar icon and Settings
+share the bottom tray in both orientations.
 
 Errors & debugging shows source health, successful update times, available memory,
 uptime, conservative AI spending, and up to 50 deduplicated error entries kept in
