@@ -71,13 +71,11 @@ class DashboardFooter:public QWidget {
 public:
     explicit DashboardFooter(QWidget *parent=nullptr);
     void setView(int view);
-    void setUpdateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool weatherStale=false,bool sample=false);
     void setIssueCount(int count){gear->setIssueCount(count);}
 signals:
     void viewRequested(int view);
     void settingsRequested();
 private:
-    QLabel *updated;
     GearButton *gear;
     CalendarButton *calendar;
 };

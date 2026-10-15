@@ -9,6 +9,8 @@
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QSignalSpy>
+#include <QVBoxLayout>
+#include <QFrame>
 #include <QtTest>
 #include <cmath>
 
@@ -44,14 +46,15 @@ private slots:
             QVERIFY2(ink>20,qPrintable(emoji));if(emoji!="⚽"&&emoji!="👨‍👩‍👧‍👦")QVERIFY2(coloured>20,qPrintable(emoji));
         }
     }
-    void footerControlsShareRowAndUpdateTextIsBottomAligned(){
-        DashboardFooter footer;QSignalSpy views(&footer,&DashboardFooter::viewRequested),settings(&footer,&DashboardFooter::settingsRequested);
-        const auto checked=QDateTime::currentDateTimeUtc();footer.setUpdateTimes(checked,checked,checked,true);footer.show();
+    void cornerControlsStayCompactAndReachable(){
+        QWidget host;auto *layout=new QVBoxLayout(&host);layout->setContentsMargins(0,0,0,0);layout->addStretch();
+        DashboardFooter footer(&host);layout->addWidget(&footer,0,Qt::AlignRight);
+        QSignalSpy views(&footer,&DashboardFooter::viewRequested),settings(&footer,&DashboardFooter::settingsRequested);host.show();
         for(int width:{1216,748,576}){
-            footer.resize(width,63);QTest::qWait(20);auto *updated=footer.findChild<QLabel*>("lastUpdated");QVERIFY(updated);
-            auto *gear=footer.findChild<QPushButton*>("settingsButton");QVERIFY(gear);
-            const int bottom=gear->geometry().bottom();QCOMPARE(updated->geometry().bottom(),bottom);
-            for(auto *button:footer.findChildren<QPushButton*>()){QCOMPARE(button->geometry().bottom(),bottom);QVERIFY(footer.rect().contains(button->geometry()));QCOMPARE(button->height(),48);}
+            host.resize(width,100);QTest::qWait(20);QCOMPARE(footer.size(),QSize(104,48));
+            QVERIFY(footer.findChildren<QLabel*>().isEmpty());QVERIFY(footer.findChildren<QFrame*>().isEmpty());
+            QCOMPARE(footer.geometry().right(),host.rect().right());QCOMPARE(footer.geometry().bottom(),host.rect().bottom());
+            for(auto *button:footer.findChildren<QPushButton*>()){QVERIFY(footer.rect().contains(button->geometry()));QCOMPARE(button->size(),QSize(48,48));}
         }
         QCOMPARE(footer.findChildren<QPushButton*>().size(),2);auto *calendar=footer.findChild<QPushButton*>("calendarButton");QVERIFY(calendar);QTest::mouseClick(calendar,Qt::LeftButton);QCOMPARE(views.count(),1);QCOMPARE(views.first().first().toInt(),2);
         footer.setView(2);QVERIFY(calendar->isChecked());footer.setView(0);QVERIFY(!calendar->isChecked());
