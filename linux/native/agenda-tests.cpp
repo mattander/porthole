@@ -16,14 +16,15 @@
 #include <QTimeZone>
 #include <QTimer>
 #include <QWindow>
+#include <QVBoxLayout>
 #include <QtTest>
 
 namespace {
 QDateTime instant(){return QDateTime(QDate(2026,10,15),QTime(14,30),QTimeZone::utc());}
-QJsonObject forecast(QDateTime at=instant()){
-    const auto first=at.toSecsSinceEpoch()/3600*3600;QJsonArray times,chances;
-    for(int index=0;index<8;++index){times.append(first+3600*index);chances.append(index*10);}
-    return {{"hourly_units",QJsonObject{{"time","unixtime"},{"precipitation_probability","%"}}},{"hourly",QJsonObject{{"time",times},{"precipitation_probability",chances}}}};
+QJsonObject forecast(QDateTime at=instant(),double currentRain=.25,double currentShowers=0){
+    const auto first=at.toSecsSinceEpoch()/3600*3600;QJsonArray times,amounts,showers;
+    for(int index=0;index<8;++index){times.append(first+3600*index);amounts.append(index*.25);showers.append(0);}
+    return {{"current_units",QJsonObject{{"time","unixtime"},{"interval","seconds"},{"rain","mm"},{"showers","mm"}}},{"current",QJsonObject{{"time",at.toSecsSinceEpoch()/900*900},{"interval",900},{"rain",currentRain},{"showers",currentShowers}}},{"hourly_units",QJsonObject{{"time","unixtime"},{"rain","mm"},{"showers","mm"}}},{"hourly",QJsonObject{{"time",times},{"rain",amounts},{"showers",showers}}}};
 }
 Event sample(){return {"sample","Sample: library visit <b>📚</b>","Example community library","Family",instant(),instant().addSecs(3600),false,QString(64,'a'),"#3388FF","Return the books.\nMeet upstairs."};}
 }
@@ -45,33 +46,46 @@ private slots:
         buttons[0]->setFocus();QTest::keyClick(buttons[0],Qt::Key_Space);QVERIFY(buttons[0]->isChecked());QVERIFY(!buttons[1]->isChecked());
         days.setView(2);QVERIFY(!buttons[0]->isChecked());QVERIFY(!buttons[1]->isChecked());
     }
-    void probabilitiesUseThePrecedingHourAndRollForward(){
-        const auto parsed=RainForecast::parse(forecast(),instant());QVERIFY(parsed);
-        const auto next=parsed->nextHours(instant());QCOMPARE(next.size(),6);QCOMPARE(next.first().end,instant().addSecs(1800));QCOMPARE(next.first().chance,10);QCOMPARE(next.last().chance,60);
-        QCOMPARE(parsed->nextHours(instant().addSecs(3600)).first().chance,20);
+    void amountsUseThePrecedingHourAndRollForward(){
+        const auto parsed=RainForecast::parse(forecast(),instant());QVERIFY(parsed);QVERIFY(parsed->raining(instant()));QCOMPARE(parsed->currentRate(),1.0);
+        const auto next=parsed->nextHours(instant());QCOMPARE(next.size(),6);QCOMPARE(next.first().end,instant().addSecs(1800));QCOMPARE(next.first().amountMm,.25);QCOMPARE(next.last().amountMm,1.5);
+        QCOMPARE(parsed->nextHours(instant().addSecs(3600)).first().amountMm,.5);
         QVERIFY(parsed->nextHours(instant().addSecs(3601)).isEmpty());QVERIFY(parsed->nextHours(instant().addSecs(-61)).isEmpty());
+        QVERIFY(!parsed->raining(instant().addSecs(901)));QVERIFY(!parsed->raining(instant().addSecs(-61)));
         for(const auto at:{QDateTime(QDate(2026,3,8),QTime(6,30),QTimeZone::utc()),QDateTime(QDate(2026,11,1),QTime(5,30),QTimeZone::utc())}){
             const auto transition=RainForecast::parse(forecast(at),at);QVERIFY(transition);const auto hours=transition->nextHours(at);QCOMPARE(hours.size(),6);
             for(int index=1;index<hours.size();++index)QCOMPARE(hours[index-1].end.secsTo(hours[index].end),3600LL);
-            RainStrip strip;strip.setForecast(*transition,at);QVERIFY(strip.accessibleDescription().contains("%"));
+            RainStrip strip;strip.setForecast(*transition,at);QVERIFY(strip.accessibleDescription().contains("mm per hour"));QVERIFY(!strip.accessibleDescription().contains('%'));
         }
     }
-    void invalidHourlyDataNeverBecomesADryForecast(){
+    void invalidAmountsAndCurrentConditionsNeverBecomeARainReport(){
         QVERIFY(!RainForecast::parse({},instant()));
-        for(const QJsonValue bad:{QJsonValue(QJsonValue::Null),QJsonValue(-1),QJsonValue(101),QJsonValue(12.5),QJsonValue("20")}){
-            auto value=forecast();auto hourly=value["hourly"].toObject();auto chances=hourly["precipitation_probability"].toArray();chances[1]=bad;hourly["precipitation_probability"]=chances;value["hourly"]=hourly;QVERIFY(!RainForecast::parse(value,instant()));
+        for(const QJsonValue bad:{QJsonValue(QJsonValue::Null),QJsonValue(-1),QJsonValue(1001),QJsonValue("0.2")}){
+            for(const auto name:{"rain","showers"}){
+                auto value=forecast();auto hourly=value["hourly"].toObject();auto amounts=hourly[name].toArray();amounts[1]=bad;hourly[name]=amounts;value["hourly"]=hourly;QVERIFY(!RainForecast::parse(value,instant()));
+                value=forecast();auto current=value["current"].toObject();current[name]=bad;value["current"]=current;QVERIFY(!RainForecast::parse(value,instant()));
+            }
         }
         auto value=forecast();auto hourly=value["hourly"].toObject();auto times=hourly["time"].toArray();times[2]=times[1];hourly["time"]=times;value["hourly"]=hourly;QVERIFY(!RainForecast::parse(value,instant()));
-        value=forecast();value["hourly_units"]=QJsonObject{{"time","iso8601"},{"precipitation_probability","%"}};QVERIFY(!RainForecast::parse(value,instant()));
+        for(const auto key:{"hourly_units","current_units"}){value=forecast();auto units=value[key].toObject();units["rain"]="inch";value[key]=units;QVERIFY(!RainForecast::parse(value,instant()));}
+        value=forecast();auto current=value["current"].toObject();current["interval"]=3600;value["current"]=current;QVERIFY(!RainForecast::parse(value,instant()));
+        value=forecast();current=value["current"].toObject();current["time"]=instant().addSecs(-1201).toSecsSinceEpoch();value["current"]=current;QVERIFY(!RainForecast::parse(value,instant()));
     }
-    void hourlyStripHasTextAlternativesAndHonestStaleStates(){
-        RainStrip strip;strip.resize(620,88);strip.show();const auto parsed=RainForecast::parse(forecast(),instant());QVERIFY(parsed);
+    void rainCurveIsContinuousAndOnlyVisibleForFreshCurrentRain(){
+        QWidget host;auto *layout=new QVBoxLayout(&host);auto *strip=new RainStrip;layout->addWidget(strip);auto *after=new QLabel("Forecast");layout->addWidget(after);host.resize(680,180);host.show();
+        QTest::qWait(10);QVERIFY(strip->isHidden());const auto dryTop=after->y();
+        const auto dry=RainForecast::parse(forecast(instant(),0),instant());QVERIFY(dry);QVERIFY(!dry->raining(instant()));strip->setForecast(*dry,instant());QVERIFY(strip->isHidden());
+        const auto wet=RainForecast::parse(forecast(),instant());QVERIFY(wet);
         for(bool dark:{false,true}){
-            QPalette palette;palette.setColor(QPalette::Window,QColor(dark?"#171d25":"#f6f5ef"));palette.setColor(QPalette::WindowText,QColor(dark?"#e6ebe9":"#253c3c"));strip.setPalette(palette);strip.setForecast(*parsed,instant());
-            QVERIFY(strip.accessibleDescription().contains("10%"));QVERIFY(!strip.grab().isNull());strip.setStale(true);QVERIFY(strip.accessibleDescription().startsWith("Saved forecast"));
+            QPalette palette;palette.setColor(QPalette::Window,QColor(dark?"#171d25":"#f6f5ef"));palette.setColor(QPalette::WindowText,QColor(dark?"#e6ebe9":"#253c3c"));strip->setPalette(palette);strip->setAutoFillBackground(true);strip->setForecast(*wet,instant());QTest::qWait(10);
+            QVERIFY(strip->isVisible());QVERIFY(after->y()>dryTop);QVERIFY(!strip->accessibleDescription().contains('%'));
+            const auto image=strip->grab().toImage();
+            for(int x=29;x<image.width()-28;++x){bool ink=false;for(int y=5;y<=52;++y){const auto colour=image.pixelColor(x,y);if(colour.blue()>colour.red()+40){ink=true;break;}}QVERIFY2(ink,"Rain curve has a visible gap");}
         }
-        strip.setTime(instant().addSecs(3601));QCOMPARE(strip.accessibleDescription(),QString("Hourly forecast unavailable"));
-        strip.clear();QVERIFY(!strip.accessibleDescription().contains("0%"));
+        strip->setTime(instant().addSecs(960));QVERIFY(strip->isHidden());
+        const auto showers=RainForecast::parse(forecast(instant(),0,.1),instant());QVERIFY(showers);strip->setForecast(*showers,instant());QVERIFY(strip->isVisible());
+        strip->clear();QVERIFY(strip->isHidden());QTest::qWait(10);QCOMPARE(after->y(),dryTop);
+        strip->setForecast(*wet,instant());strip->setForecast(*dry,instant());QVERIFY(strip->isHidden());
     }
     void descriptionIsBoundedOnDemandAndAbsentFromStatus(){
         auto event=sample();const auto status=calendarEventJson(event);QVERIFY(!status.contains("description"));QVERIFY(!QJsonDocument(status).toJson().contains("Meet upstairs"));
