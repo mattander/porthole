@@ -13,6 +13,7 @@
 #include <QApplication>
 #include <QFontInfo>
 #include <QPlainTextEdit>
+#include <QScrollArea>
 #include <QtTest>
 
 namespace {
@@ -66,7 +67,9 @@ private slots:
             for(int i=0;i<6;++i){tabs->setCurrentIndex(i);QTest::qWait(10);
                 for(auto *button:tabs->currentWidget()->findChildren<QPushButton*>())if(button->isVisible()){
                     const auto rect=QRect(button->mapTo(&pane,QPoint()),button->size());
-                    if(i<3)QVERIFY2(pane.rect().contains(rect),qPrintable(button->text()));QVERIFY(button->height()>=44);
+                    if(i<2)QVERIFY2(pane.rect().contains(rect),qPrintable(button->text()));
+                    if(i==2){auto *scroll=pane.findChild<QScrollArea*>("displayScroll");QVERIFY(scroll);scroll->ensureWidgetVisible(button);QTest::qWait(5);QVERIFY(scroll->viewport()->rect().contains(button->mapTo(scroll->viewport(),button->rect().center())));}
+                    QVERIFY(button->height()>=44);
                 }
             }
         }
@@ -79,14 +82,21 @@ private slots:
         QTest::mouseClick(named(pane,"View sample data"),Qt::LeftButton);QCOMPARE(sample,1);
         QTest::mouseClick(named(pane,"Refresh live data"),Qt::LeftButton);QCOMPARE(refresh,1);
     }
-    void sunriseSettingReflectsStateWithoutEmittingUserChanges(){
-        QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int changes=0;bool enabled=false;SettingsActions actions;actions.followSun=[&](bool value){++changes;enabled=value;};
+    void appearanceAndBrightnessUseLargeControlsWithoutFeedbackLoops(){
+        QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int changes=0,brightnessChanges=0;auto mode=AppearanceMode::Manual;int level=0;
+        SettingsActions actions;actions.appearance=[&](AppearanceMode value){++changes;mode=value;};actions.brightness=[&](int value){++brightnessChanges;level=value;};
         SettingsPane pane(&wifi,actions,&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(2);
-        auto *follow=pane.findChild<QCheckBox*>("followSun");auto *status=pane.findChild<QLabel*>("sunThemeStatus");QVERIFY(follow);QVERIFY(status);
-        pane.updateAppearance(true,"Light until sunset at 6:35 PM");QCOMPARE(changes,0);QVERIFY(follow->isChecked());QVERIFY(status->isVisible());QVERIFY(named(pane,"Light")->isEnabled());QVERIFY(named(pane,"Dark")->isEnabled());
-        QTest::mouseClick(follow,Qt::LeftButton);QCOMPARE(changes,1);QVERIFY(!enabled);
-        pane.updateAppearance(false,{});QCOMPARE(changes,1);QVERIFY(!status->isVisible());
-        for(const auto size:{QSize(1280,800),QSize(800,1280)}){pane.resize(size);pane.updateAppearance(true,"Waiting for today's sun times. Keeping the current theme.");QTest::qWait(10);QVERIFY(follow->height()>=48);QVERIFY(pane.rect().contains(QRect(follow->mapTo(&pane,QPoint()),follow->size())));}
+        auto *sun=pane.findChild<QPushButton*>("appearanceSun"),*ambient=pane.findChild<QPushButton*>("appearanceAmbient"),*manual=pane.findChild<QPushButton*>("appearanceManual");auto *status=pane.findChild<QLabel*>("appearanceStatus");auto *slider=pane.findChild<QSlider*>("brightness");QVERIFY(sun&&ambient&&manual&&status&&slider);
+        pane.updateAppearance(AppearanceMode::SunSchedule,"Light until sunset at 6:35 PM");QCOMPARE(changes,0);QVERIFY(sun->isChecked());QVERIFY(status->text().contains("sunset"));
+        QTest::mouseClick(ambient,Qt::LeftButton);QCOMPARE(changes,1);QCOMPARE(mode,AppearanceMode::AmbientLight);QVERIFY(!sun->isChecked());
+        pane.updateAppearance(AppearanceMode::AmbientLight,"Light sensor unavailable. Keeping current theme.");QCOMPARE(changes,1);QVERIFY(status->text().contains("unavailable"));
+        QTest::mouseClick(manual,Qt::LeftButton);QCOMPARE(mode,AppearanceMode::Manual);
+        pane.updateBrightness(BacklightState{8,10,true});QCOMPARE(brightnessChanges,0);QCOMPARE(slider->value(),8);QVERIFY(slider->isEnabled());QVERIFY(slider->height()>=56);
+        slider->setValue(7);QCOMPARE(brightnessChanges,1);QCOMPARE(level,7);pane.updateBrightness(BacklightState{7,10,true});QCOMPARE(brightnessChanges,1);QCOMPARE(pane.findChild<QLabel*>("brightnessValue")->text(),QString("70%"));
+        pane.updateBrightness({});QVERIFY(!slider->isEnabled());pane.updateBrightness(BacklightState{8,10,false});QVERIFY(!slider->isEnabled());
+        for(const auto size:{QSize(1280,800),QSize(800,1280)}){
+            pane.resize(size);QTest::qWait(10);for(auto *button:{sun,ambient,manual}){QVERIFY(button->height()>=64);QVERIFY(pane.rect().contains(QRect(button->mapTo(&pane,QPoint()),button->size())));}
+        }
     }
     void googleControlsAreIndependentAndFitBothOrientations(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int setup=0,choose=0,forget=0;SettingsActions actions;actions.setupGoogle=[&]{++setup;};actions.chooseGoogle=[&]{++choose;};actions.forgetGoogle=[&]{++forget;};SettingsPane pane(&wifi,actions,&parent);pane.show();QTest::qWait(20);

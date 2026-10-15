@@ -22,14 +22,17 @@ See [font provenance](fonts/README.md).
 `--demo --emoji-preview` displays clearly fictional Unicode and emoji examples
 for offline rendering checks.
 
-Display → Follow sunrise and sunset switches to light at sunrise and dark at
-sunset using the configured weather location and timezone. It is off by default;
-choosing Light or Dark turns it off. Valid solar times for up to four forecast
+Display offers Manual, Auto (light sensor), and Auto (sunrise / sunset), plus
+a saved brightness slider with large minus/plus buttons. Light or Dark returns
+to Manual. The sunrise mode switches at the configured weather location’s
+sunrise and sunset; existing Follow sunrise and sunset preferences carry over. Valid solar times for up to four forecast
 days are saved with the household profile revision, allowing offline transitions
 and restart recovery. Missing or expired times retain the current theme and show
 a waiting status; location/timezone changes reject the old schedule.
 `--demo --preview-follow-sun --preview-settings --preview-tab Display` previews
-the setting using clearly fictional solar times.
+the setting using clearly fictional solar times. See [display controls](../display/README.md)
+for sensor thresholds, the current frame’s unavailable sensor, and the narrow
+one-time USB backlight permission bootstrap. Demo controls never change hardware.
 
 For persistent operation, install the reviewed account service bundle on the validated SD system. Build against the matching ARMv7 userspace; keep kernel/modules at the verified versions. Dependencies are gcc, make, cmake, qt6-base, qt6-wayland, and libical. The frame only needs the runtime dependencies.
 

@@ -1,6 +1,7 @@
 #include "profile.h"
 #include "typography.h"
 #include <QMessageBox>
+#include <algorithm>
 #include "settings.h"
 #include "keyboard.h"
 #include "diagnostics.h"
@@ -91,16 +92,29 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     display->addWidget(text("Appearance",28));display->addWidget(text("Choose the look of your wall display. Your choice is saved on this SD card.",18,true));
     auto *themes=new QHBoxLayout;lightButton=action("Light");darkButton=action("Dark");lightButton->setCheckable(true);darkButton->setCheckable(true);auto *group=new QButtonGroup(this);group->addButton(lightButton);group->addButton(darkButton);themes->addWidget(lightButton);themes->addWidget(darkButton);themes->addStretch();display->addLayout(themes);
     connect(lightButton,&QPushButton::clicked,this,[actions]{actions.theme(false);});connect(darkButton,&QPushButton::clicked,this,[actions]{actions.theme(true);});
-    followSun=new TouchCheckBox("Follow sunrise and sunset");followSun->setObjectName("followSun");display->addWidget(followSun);
-    display->addWidget(text("Uses your weather location. Choosing Light or Dark turns this off.",16,true));sunThemeStatus=text("",16,true);sunThemeStatus->setObjectName("sunThemeStatus");display->addWidget(sunThemeStatus);sunThemeStatus->hide();
-    connect(followSun,&QCheckBox::toggled,this,[actions](bool enabled){if(actions.followSun)actions.followSun(enabled);});
+    auto *appearanceModes=new QHBoxLayout;auto *modeGroup=new QButtonGroup(this);
+    manualMode=action("Manual");ambientMode=action("Auto\nLight sensor");sunMode=action("Auto\nSunrise / sunset");
+    const auto addMode=[&](QPushButton *button,AppearanceMode mode,const QString &name){
+        button->setObjectName(name);button->setCheckable(true);button->setMinimumHeight(64);modeGroup->addButton(button);appearanceModes->addWidget(button,1);
+        connect(button,&QPushButton::clicked,this,[actions,mode]{if(actions.appearance)actions.appearance(mode);});
+    };
+    addMode(manualMode,AppearanceMode::Manual,"appearanceManual");addMode(ambientMode,AppearanceMode::AmbientLight,"appearanceAmbient");addMode(sunMode,AppearanceMode::SunSchedule,"appearanceSun");display->addLayout(appearanceModes);
+    appearanceStatus=text("",16,true);appearanceStatus->setObjectName("appearanceStatus");display->addWidget(appearanceStatus);
+    auto *brightnessHeading=new QHBoxLayout;brightnessHeading->addWidget(text("Brightness",24),1);brightnessValue=text("—",24);brightnessValue->setObjectName("brightnessValue");brightnessHeading->addWidget(brightnessValue);display->addLayout(brightnessHeading);
+    auto *brightnessRow=new QHBoxLayout;dimmer=action("−");brighter=action("+");dimmer->setFixedWidth(64);brighter->setFixedWidth(64);dimmer->setAccessibleName("Decrease brightness");brighter->setAccessibleName("Increase brightness");
+    brightness=new QSlider(Qt::Horizontal);brightness->setObjectName("brightness");brightness->setAccessibleName("Screen brightness");brightness->setMinimumHeight(56);brightness->setRange(1,10);brightness->setPageStep(1);
+    brightness->setStyleSheet("QSlider::groove:horizontal {height:8px;background:#81918c;border-radius:4px;} QSlider::handle:horizontal {width:32px;margin:-16px 0;background:palette(highlight);border:2px solid palette(text);border-radius:16px;}");
+    brightnessRow->addWidget(dimmer);brightnessRow->addWidget(brightness,1);brightnessRow->addWidget(brighter);display->addLayout(brightnessRow);
+    connect(dimmer,&QPushButton::clicked,brightness,[this]{brightness->setValue(brightness->value()-1);});connect(brighter,&QPushButton::clicked,brightness,[this]{brightness->setValue(brightness->value()+1);});
+    connect(brightness,&QSlider::valueChanged,this,[actions](int level){if(actions.brightness)actions.brightness(level);});
+    brightnessStatus=text("Brightness control is unavailable.",16,true);brightnessStatus->setObjectName("brightnessStatus");display->addWidget(brightnessStatus);updateBrightness({});
     display->addWidget(text("Rotation follows the frame",22));display->addWidget(text("Turn it to either landscape or portrait direction. The screen and touch positions follow together.",18,true));display->addStretch();
     auto *fontLicence=action("Font licences");display->addWidget(fontLicence,0,Qt::AlignLeft);
     connect(fontLicence,&QPushButton::clicked,this,[this]{
         QDialog dialog(this);dialog.setWindowTitle("Bundled font licences");dialog.resize(size());auto *layout=new QVBoxLayout(&dialog);
         layout->addWidget(text("Bundled font licences",28));auto *licence=new QPlainTextEdit(interfaceFontLicence());licence->setObjectName("fontLicenceText");licence->setReadOnly(true);licence->setLineWrapMode(QPlainTextEdit::WidgetWidth);layout->addWidget(licence,1);
         auto *close=action("Back to Settings");layout->addWidget(close);connect(close,&QPushButton::clicked,&dialog,&QDialog::accept);dialog.exec();
-    });tabs->addTab(displayPage,"Display");
+    });auto *displayScroll=new QScrollArea;displayScroll->setObjectName("displayScroll");displayScroll->setWidgetResizable(true);displayScroll->setFrameShape(QFrame::NoFrame);displayScroll->setWidget(displayPage);QScroller::grabGesture(displayScroll->viewport(),QScroller::TouchGesture);tabs->addTab(displayScroll,"Display");
 
     auto *dataPage=new QWidget;auto *data=new QVBoxLayout(dataPage);data->setContentsMargins(24,24,24,24);data->setSpacing(20);
     data->addWidget(text("Last updated",22));dataUpdated=text("",18);dataUpdated->setObjectName("dataUpdated");data->addWidget(dataUpdated);updateTimes({},{},{});
@@ -203,8 +217,18 @@ void SettingsPane::updateBriefing(const QJsonObject &state){
 void SettingsPane::updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){
     dataUpdated->setText(QString("%1Calendars · %2\nWeather · %3%4\nBriefing · %5").arg(sample?"Sample data · fictional\n":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));
 }
-void SettingsPane::updateAppearance(bool enabled,const QString &status){
-    QSignalBlocker blocker(followSun);followSun->setChecked(enabled);sunThemeStatus->setText(enabled?status:QString());sunThemeStatus->setVisible(enabled);
+void SettingsPane::updateAppearance(AppearanceMode mode,const QString &status){
+    manualMode->setChecked(mode==AppearanceMode::Manual);ambientMode->setChecked(mode==AppearanceMode::AmbientLight);sunMode->setChecked(mode==AppearanceMode::SunSchedule);
+    appearanceStatus->setText(mode==AppearanceMode::Manual?"Choose Light or Dark above. This choice stays until you change it.":status);
+}
+void SettingsPane::updateBrightness(const std::optional<BacklightState> &state,const QString &status){
+    const bool available=state&&state->writable;
+    brightness->setEnabled(available);dimmer->setEnabled(available);brighter->setEnabled(available);
+    if(state){
+        QSignalBlocker blocker(brightness);brightness->setRange(1,state->maximum);if(!brightness->isSliderDown())brightness->setValue(std::max(1,state->level));
+        brightnessValue->setText(QString::number(state->percent())+"%");dimmer->setEnabled(available&&state->level>1);brighter->setEnabled(available&&state->level<state->maximum);
+    }else brightnessValue->setText("—");
+    brightnessStatus->setText(!status.isEmpty()?status:available?"Saved on this frame. The lowest level keeps the screen on.":"Brightness control is unavailable on this device.");
 }
 void SettingsPane::updateDiagnostics(const QJsonObject &state){
     lastDiagnostics=safeDiagnostics(state);const auto &safe=lastDiagnostics;const int active=safe["active"].toInt();diagnosticState->setText(active?QString("%1 %2").arg(active).arg(active==1?"issue needs attention":"issues need attention"):"No active issues");
