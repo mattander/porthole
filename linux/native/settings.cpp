@@ -24,6 +24,11 @@
 #include <QVBoxLayout>
 
 namespace {
+QString checked(QDateTime value){
+    if(!value.isValid())return "—";
+    value=value.toTimeZone(configuredZone());
+    return value.toString(value.date()==QDateTime::currentDateTimeUtc().toTimeZone(configuredZone()).date()?"h:mm AP":"ddd, MMM d · h:mm AP");
+}
 QLabel *text(const QString &value,int size,bool secondary=false) {
     auto *label=new QLabel(value);label->setTextFormat(Qt::PlainText);label->setWordWrap(true);
     QFont font=label->font();font.setPixelSize(size);label->setFont(font);
@@ -98,6 +103,7 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     });tabs->addTab(displayPage,"Display");
 
     auto *dataPage=new QWidget;auto *data=new QVBoxLayout(dataPage);data->setContentsMargins(24,24,24,24);data->setSpacing(20);
+    data->addWidget(text("Last updated",22));dataUpdated=text("",18);dataUpdated->setObjectName("dataUpdated");data->addWidget(dataUpdated);updateTimes({},{},{});
     data->addWidget(text("Weather & time",28));profileInfo=text("Weather location is not configured",18);profileInfo->setObjectName("profileInfo");data->addWidget(profileInfo);weatherStatus=text("",18,true);data->addWidget(weatherStatus);data->addWidget(text("Calendar checks every minute · Weather refreshes every 15 minutes",16,true));data->addWidget(text("Weather provider: Open-Meteo",16,true));
     auto *editProfile=action("Edit location and timezone");data->addWidget(editProfile,0,Qt::AlignLeft);
     connect(editProfile,&QPushButton::clicked,this,[this,actions]{
@@ -194,6 +200,9 @@ void SettingsPane::updateBriefing(const QJsonObject &state){
     }
 }
 
+void SettingsPane::updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){
+    dataUpdated->setText(QString("%1Calendars · %2\nWeather · %3%4\nBriefing · %5").arg(sample?"Sample data · fictional\n":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));
+}
 void SettingsPane::updateAppearance(bool enabled,const QString &status){
     QSignalBlocker blocker(followSun);followSun->setChecked(enabled);sunThemeStatus->setText(enabled?status:QString());sunThemeStatus->setVisible(enabled);
 }

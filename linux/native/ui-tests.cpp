@@ -112,6 +112,7 @@ private slots:
     void softwareControlsUseCallbacksAndSafeStates(){
         QWidget parent;parent.resize(1280,800);WifiController wifi(nullptr,true);int checks=0,toggles=0;bool enabled=true;
         SettingsActions actions;actions.checkUpdates=[&]{++checks;};actions.automaticUpdates=[&](bool value){++toggles;enabled=value;};SettingsPane pane(&wifi,actions,&parent);pane.show();pane.findChild<QTabWidget*>()->setCurrentIndex(3);
+        pane.updateTimes(QDateTime::currentDateTimeUtc(),{}, {},true,true);auto *updated=pane.findChild<QLabel*>("dataUpdated");QVERIFY(updated);QVERIFY(updated->text().contains("Calendars · "));QVERIFY(updated->text().contains("Weather · — (stale)"));QVERIFY(updated->text().contains("Briefing · —"));QVERIFY(updated->text().contains("fictional"));
         auto *button=pane.findChild<QPushButton*>("checkUpdates");auto *automatic=pane.findChild<QCheckBox*>("automaticUpdates");QVERIFY(button&&automatic);QVERIFY(!button->isEnabled());
         pane.updateSoftware(SoftwareUpdate{UpdatePhase::Current,UpdateFailure::None,true,"2026.10.14.1",{}});QCOMPARE(toggles,0);QVERIFY(button->isEnabled());QVERIFY(automatic->isChecked());
         QTest::mouseClick(button,Qt::LeftButton);QCOMPARE(checks,1);QTest::mouseClick(automatic,Qt::LeftButton);QCOMPARE(toggles,1);QVERIFY(!enabled);

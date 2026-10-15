@@ -150,7 +150,7 @@ public:
         board->setContentsMargins(0,0,0,0);board->setSpacing(48);
         board->addWidget(conditions,55);board->addWidget(calendar,55);board->addWidget(agenda,45);
         root->addLayout(board,1);
-        root->addWidget(footer);
+        root->addWidget(footer,0,Qt::AlignRight);
         connect(dayTabs,&AgendaDays::viewRequested,this,&Dashboard::changeView);
         connect(footer,&DashboardFooter::viewRequested,this,[this](int next){changeView(next==2&&view==2?lastDayView:next);});
         connect(footer,&DashboardFooter::settingsRequested,this,&Dashboard::showSettings);
@@ -257,6 +257,7 @@ private:
         QStringList names;for(const auto &calendar:selected)if(!isGoogleCalendarUrl(calendar.url))names<<calendar.name;
         settings->updateGoogle(caldav.googleState());settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
         settings->updateDiagnostics(diagnosticState());
+        settings->updateTimes(lastCalendar,lastWeather,lastSummary,weatherStale,demo);
         settings->updateSoftware(updates.state());
         settings->updateAppearance(followSun,sunThemeDescription());
         settings->updateState(demo?calendarStatus:caldav.icloudStatus(),weatherStatus,names,darkTheme,demo,caldav.hasAccount(),!caldav.availableCalendars().isEmpty());
@@ -339,6 +340,7 @@ private:
             "QWidget {background:%1;color:%2;} QLabel {border:0;} QLabel[tone=secondary] {color:%5;} QLabel[tone=notice] {color:%10;} "
             "QPushButton {border:1px solid %3;border-radius:4px;padding:6px 16px;} "
             "QPushButton:checked {background:%7;color:%8;border-color:%7;} QPushButton:pressed {background:%9;} "
+            "QPushButton#calendarButton,QPushButton#settingsButton {border-color:transparent;} QPushButton#calendarButton:focus,QPushButton#settingsButton:focus {border-color:%6;} "
             "QPushButton:disabled {color:%5;} QLineEdit {background:%4;border:1px solid %5;padding:8px;selection-background-color:%7;selection-color:%8;} "
             "QPushButton#agendaDayTab {background:transparent;border:0;border-bottom:3px solid transparent;border-radius:0;padding:4px 8px;color:%5;} "
             "QPushButton#agendaDayTab:checked {background:transparent;border-bottom:3px solid %6;color:%2;} QPushButton#agendaDayTab:pressed {background:%9;} "
@@ -360,7 +362,6 @@ private:
         if(view<2&&selectedDate!=time.date().addDays(view)){selectedDate=time.date().addDays(view);if(!demo)refreshCalendar();renderAgenda();}
     }
     void renderStatus() {
-        footer->setUpdateTimes(lastCalendar,lastWeather,lastSummary,weatherStale,demo);
         footer->setIssueCount(diagnostics.activeCount());syncSettings();
     }
     void changeView(int next) {

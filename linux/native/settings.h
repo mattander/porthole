@@ -2,6 +2,7 @@
 #include "wifi.h"
 #include "update-client.h"
 #include <QDialog>
+#include <QDateTime>
 #include <QLabel>
 #include <QListWidget>
 #include <QPushButton>
@@ -32,6 +33,7 @@ public:
     void updateDiagnostics(const QJsonObject &state);
     void updateSoftware(const std::optional<SoftwareUpdate> &state);
     void updateAppearance(bool followSun,const QString &status);
+    void updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool weatherStale=false,bool sample=false);
 private:
     QLabel *googleStatus;QPushButton *googleChoose,*googleForget;
     QLabel *calendarStatus,*weatherStatus,*calendarNames,*modeStatus;
@@ -45,7 +47,7 @@ private:
     bool briefingInitialized=false;
     QLabel *diagnosticState,*diagnosticSources,*diagnosticHealth,*diagnosticHistory;
     QJsonObject lastDiagnostics,lastProfile;
-    QLabel *profileInfo;
+    QLabel *profileInfo,*dataUpdated;
     QLineEdit *householdContext;
     QLabel *softwareStatus;
     QCheckBox *automaticUpdates;

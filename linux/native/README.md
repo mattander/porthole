@@ -1,6 +1,6 @@
 # Porthole native Linux app
 
-An original C++/Qt Widgets application for the PF1007L's SD-only Linux system. The clock, weather, and bounded family briefing sit beside the agenda in landscape and stack in portrait. Widgets render without a browser or embedded web engine. The bottom bar places successful iCloud, weather, and summary update times on the left, aligned to a calendar icon and Settings gear on the right. Today and Tomorrow are large, tappable headings above the agenda; the calendar icon opens the month view and returns to the previously selected day view when tapped again. Settings opens Wi-Fi, iCloud, Display, Data, AI, and Errors & debugging panes. Display → Light / Dark switches the complete native UI and saves the appearance choice in `~/.config/porthole/preferences.ini`; this file contains display preferences, not credentials. Sway and the physically verified sensor/touch services handle orientation.
+An original C++/Qt Widgets application for the PF1007L's SD-only Linux system. The clock, weather, and bounded family briefing sit beside the agenda in landscape and stack in portrait. Widgets render without a browser or embedded web engine. Calendar and Settings are compact, borderless icons in the bottom-right corner, with no footer strip or divider. Settings → Data shows the last successful calendar, weather and briefing updates, including stale-weather and sample-data labels. Today and Tomorrow are large, tappable headings above the agenda; the calendar icon opens the month view and returns to the previously selected day view when tapped again. Settings opens Wi-Fi, iCloud, Display, Data, AI, and Errors & debugging panes. Display → Light / Dark switches the complete native UI and saves the appearance choice in `~/.config/porthole/preferences.ini`; this file contains display preferences, not credentials. Sway and the physically verified sensor/touch services handle orientation.
 
 The direct iCloud connector uses HTTPS CalDAV discovery and read-only PROPFIND/REPORT requests. It sends an app-specific password only to the allowed iCloud CalDAV service hosts, validates TLS normally, checks redirects before forwarding authorization, and bounds responses. Settings → Calendars → iCloud opens the native sign-in form, with a touch keyboard, Show password toggle and Remember this account option. Change calendars, Replace password and Forget account provide account management. Remember this account is selected by default. After successful discovery and calendar selection, the separate calendar service saves an encrypted credential using systemd, restores the account and selection after restart, and exposes calendar data to the restricted dashboard through a local Unix socket. Calendar events remain in memory; no event cache is written. See [persistent account storage](../account/README.md) for the permission boundaries and removable-SD security limit.
 
@@ -56,7 +56,7 @@ The `wifi-ui-responsiveness` test uses a private D-Bus daemon and a deliberately
 ## Agenda and event details
 
 Tap Today or Tomorrow above the agenda to switch its date; these controls also
-return from month browsing. The calendar icon in the bottom tray toggles the month
+return from month browsing. The calendar icon in the bottom-right corner toggles the month
 view. Event rows are native buttons with full-row touch targets and keyboard
 activation. Tapping a row opens a scrollable detail panel with its title, date/time
 range, calendar, location and notes, plus a large Close control. All-day ranges
@@ -69,7 +69,7 @@ show a retry message. Notes are not included in AI briefing requests.
 
 `--demo --preview-tomorrow` selects the second heading;
 `--demo --preview-event-details` opens a fictional event. Demo captures reject
-a clipped briefing, overlapping agenda or off-screen footer.
+a clipped briefing, overlapping agenda or off-screen controls.
 
 ## Hourly precipitation
 
@@ -106,7 +106,7 @@ The clock paints 12-hour time and AM/PM on a shared baseline. Weather icons cove
 today and the next three days; an unknown or invalid forecast keeps the previous
 data and records a fixed diagnostic message. The app name and timezone subtitle
 are removed. Today/Tomorrow controls sit above the agenda; the calendar icon and Settings
-share the bottom tray in both orientations.
+sit in the bottom-right corner in both orientations.
 
 Errors & debugging shows source health, successful update times, available memory,
 uptime, conservative AI spending, and up to 50 deduplicated error entries kept in
