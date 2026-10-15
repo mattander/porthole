@@ -1,0 +1,29 @@
+[Unit]
+Description=Allow Porthole to adjust the panel brightness
+Requires=porthole-display.service
+After=porthole-display.service
+Before=porthole-kiosk.service
+ConditionPathExists=/sys/class/backlight/backlight/brightness
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/bin/chgrp porthole /sys/class/backlight/backlight/brightness
+ExecStart=/usr/bin/chmod 0660 /sys/class/backlight/backlight/brightness
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_CHOWN CAP_FOWNER
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+PrivateNetwork=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ReadOnlyPaths=/sys
+ReadWritePaths=/sys/class/backlight/backlight/brightness
+RestrictAddressFamilies=AF_UNIX
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+
+[Install]
+WantedBy=multi-user.target
