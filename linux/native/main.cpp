@@ -194,9 +194,9 @@ public:
                     QJsonObject{{"text","Alex’s provided pasta lunch"},{"calendar_ids",QJsonArray{"sample-school-a"}}},
                     QJsonObject{{"text"," and "},{"calendar_ids",QJsonArray{}}},
                     QJsonObject{{"text","Sam’s picture day"},{"calendar_ids",QJsonArray{"sample-school-b"}}},
-                    QJsonObject{{"text",". "},{"calendar_ids",QJsonArray{}}},
-                    QJsonObject{{"text","The library pickup is tomorrow, 8 AM–6 PM"},{"calendar_ids",QJsonArray{"sample-home"}}},
-                    QJsonObject{{"text","."},{"calendar_ids",QJsonArray{}}}};
+                    QJsonObject{{"text",". The "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","library pickup"},{"calendar_ids",QJsonArray{"sample-home"}}},
+                    QJsonObject{{"text"," is tomorrow, 8 AM–6 PM."},{"calendar_ids",QJsonArray{}}}};
                 QString copy;for(const auto &part:parts)copy+=part.toObject()["text"].toString();
                 briefing->updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",QJsonArray{
                     QJsonObject{{"id","sample-school-a"},{"name","School A"},{"colour","#FFFF00"}},

@@ -98,10 +98,10 @@ void BriefingWidget::updateBriefing(const QJsonObject &state,bool sample){
     body->segments={};body->calendars={};
     if(sample){
         body->segments={QJsonObject{{"text","Sample: "},{"calendar_ids",QJsonArray{}}},
-            QJsonObject{{"text","dinner together is at 6:30 PM today"},{"calendar_ids",QJsonArray{"sample-home"}}},
-            QJsonObject{{"text",". "},{"calendar_ids",QJsonArray{}}},
-            QJsonObject{{"text","Tomorrow’s soccer practice starts at 5 PM"},{"calendar_ids",QJsonArray{"sample-family"}}},
-            QJsonObject{{"text",". The forecast is cool with rain."},{"calendar_ids",QJsonArray{}}}};
+            QJsonObject{{"text","dinner together"},{"calendar_ids",QJsonArray{"sample-home"}}},
+            QJsonObject{{"text"," is at 6:30 PM today. Tomorrow’s "},{"calendar_ids",QJsonArray{}}},
+            QJsonObject{{"text","soccer practice"},{"calendar_ids",QJsonArray{"sample-family"}}},
+            QJsonObject{{"text"," starts at 5 PM. The forecast is cool with rain."},{"calendar_ids",QJsonArray{}}}};
         body->calendars={QJsonObject{{"id","sample-home"},{"colour","#E7A82F"},{"name","Home"}},QJsonObject{{"id","sample-family"},{"colour","#AF52DE"},{"name","Family"}}};
         fullText.clear();for(const auto &value:body->segments)fullText+=value.toObject()["text"].toString();
         stamp->setText("Sample · fictional");stamp->show();
