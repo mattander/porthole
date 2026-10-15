@@ -117,7 +117,7 @@ public:
         const auto fail=[this](const char *reason){QTextStream(stderr)<<reason<<" conditions="<<conditions->x()<<","<<conditions->y()<<","<<conditions->width()<<","<<conditions->height()<<" briefing="<<briefing->x()<<","<<briefing->y()<<","<<briefing->width()<<","<<briefing->height()<<" agenda="<<agenda->x()<<","<<agenda->y()<<","<<agenda->width()<<","<<agenda->height()<<"\n";return false;};
         if(conditions->isVisible()&&!conditions->rect().contains(briefing->geometry()))return fail("Briefing clipped");
         if(conditions->isVisible()&&conditions->geometry().intersects(agenda->geometry()))return fail("Agenda overlap");
-        if(!rect().contains(footer->geometry()))return fail("Footer clipped");
+        if(!rect().contains(QRect(footer->mapTo(this,QPoint()),footer->size())))return fail("Footer clipped");
         if(!rect().contains(QRect(agenda->mapTo(this,QPoint()),agenda->size())))return fail("Agenda clipped");
         if(auto *key=briefing->findChild<QWidget*>("briefingKeyArea"))if(key->isVisible()&&!briefing->rect().contains(key->geometry()))return fail("Briefing key clipped");
         return true;
@@ -126,16 +126,17 @@ public:
         setWindowTitle("Porthole");setMinimumSize(640,600);
         caption->setProperty("tone","secondary");feels->setProperty("tone","secondary");sunTimes->setProperty("tone","secondary");
         auto *root=new QVBoxLayout(this);root->setContentsMargins(32,30,32,18);root->setSpacing(20);
-        auto *left=new DashboardColumnLayout(conditions);left->setContentsMargins(0,0,0,0);left->setSpacing(6);
+        auto *left=new DashboardColumnLayout(conditions);left->setContentsMargins(0,0,0,0);left->setSpacing(14);
         left->addWidget(clock);left->addWidget(date);left->addSpacing(7);
         auto *divider=new QFrame;divider->setFrameShape(QFrame::HLine);divider->setFixedHeight(1);left->addWidget(divider);left->addSpacing(3);
         auto *current=new QHBoxLayout;current->setSpacing(18);current->addWidget(currentIcon);current->addWidget(temperature);
-        auto *weatherCopy=new QVBoxLayout;weatherCopy->setSpacing(5);weatherCopy->addWidget(weatherLocation);weatherCopy->addWidget(weather);weatherCopy->addWidget(feels);weatherCopy->addWidget(sunTimes);current->addLayout(weatherCopy,1);left->addLayout(current);
+        auto *weatherCopy=new QVBoxLayout;weatherCopy->setSpacing(8);weatherCopy->addWidget(weatherLocation);weatherCopy->addWidget(weather);weatherCopy->addWidget(feels);weatherCopy->addWidget(sunTimes);current->addLayout(weatherCopy,1);left->addLayout(current);
         left->addWidget(rain);left->addWidget(forecast);left->addSpacing(4);left->addWidget(briefing);left->addStretch();
         agenda->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Ignored);
         auto *right=new DashboardColumnLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(dayTabs);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
         QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);right->addWidget(scroll,1);
+        right->addWidget(footer,0,Qt::AlignRight);
         eventLayout->setContentsMargins(0,0,8,0);eventLayout->setSpacing(26);eventLayout->setAlignment(Qt::AlignTop);
         calendar->setFirstDayOfWeek(Qt::Sunday);calendar->setGridVisible(false);
         calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
@@ -151,7 +152,6 @@ public:
         board->setContentsMargins(0,0,0,0);board->setSpacing(48);
         board->addWidget(conditions,55);board->addWidget(calendar,55);board->addWidget(agenda,45);
         root->addLayout(board,1);
-        root->addWidget(footer,0,Qt::AlignRight);
         connect(dayTabs,&AgendaDays::viewRequested,this,&Dashboard::changeView);
         connect(footer,&DashboardFooter::viewRequested,this,[this](int next){changeView(next==2&&view==2?lastDayView:next);});
         connect(footer,&DashboardFooter::settingsRequested,this,&Dashboard::showSettings);
