@@ -86,7 +86,7 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     display->addWidget(text("Appearance",28));display->addWidget(text("Choose the look of your wall display. Your choice is saved on this SD card.",18,true));
     auto *themes=new QHBoxLayout;lightButton=action("Light");darkButton=action("Dark");lightButton->setCheckable(true);darkButton->setCheckable(true);auto *group=new QButtonGroup(this);group->addButton(lightButton);group->addButton(darkButton);themes->addWidget(lightButton);themes->addWidget(darkButton);themes->addStretch();display->addLayout(themes);
     connect(lightButton,&QPushButton::clicked,this,[actions]{actions.theme(false);});connect(darkButton,&QPushButton::clicked,this,[actions]{actions.theme(true);});
-    followSun=new TouchCheckBox("Follow sunrise and sunset");followSun->setObjectName("followSun");followSun->setMinimumHeight(48);display->addWidget(followSun);
+    followSun=new TouchCheckBox("Follow sunrise and sunset");followSun->setObjectName("followSun");display->addWidget(followSun);
     display->addWidget(text("Uses your weather location. Choosing Light or Dark turns this off.",16,true));sunThemeStatus=text("",16,true);sunThemeStatus->setObjectName("sunThemeStatus");display->addWidget(sunThemeStatus);sunThemeStatus->hide();
     connect(followSun,&QCheckBox::toggled,this,[actions](bool enabled){if(actions.followSun)actions.followSun(enabled);});
     display->addWidget(text("Rotation follows the frame",22));display->addWidget(text("Turn it to either landscape or portrait direction. The screen and touch positions follow together.",18,true));display->addStretch();
@@ -123,7 +123,7 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     });
     auto *refresh=action("Refresh live data");data->addWidget(refresh,0,Qt::AlignLeft);connect(refresh,&QPushButton::clicked,this,actions.refresh);
     data->addWidget(text("Software updates",22));softwareStatus=text("Update service is not connected",18);softwareStatus->setObjectName("softwareStatus");data->addWidget(softwareStatus);
-    automaticUpdates=new TouchCheckBox("Install updates automatically");automaticUpdates->setMinimumHeight(48);automaticUpdates->setObjectName("automaticUpdates");data->addWidget(automaticUpdates);
+    automaticUpdates=new TouchCheckBox("Install updates automatically");automaticUpdates->setObjectName("automaticUpdates");data->addWidget(automaticUpdates);
     checkUpdates=action("Check for updates");checkUpdates->setObjectName("checkUpdates");data->addWidget(checkUpdates,0,Qt::AlignLeft);
     connect(automaticUpdates,&QCheckBox::clicked,this,[actions](bool enabled){if(actions.automaticUpdates)actions.automaticUpdates(enabled);});
     connect(checkUpdates,&QPushButton::clicked,this,[actions]{if(actions.checkUpdates)actions.checkUpdates();});
@@ -136,7 +136,7 @@ SettingsPane::SettingsPane(WifiController *wifi,const SettingsActions &actions,Q
     auto *aiPage=new QWidget;auto *ai=new QVBoxLayout(aiPage);ai->setContentsMargins(24,24,24,24);ai->setSpacing(16);
     ai->addWidget(text("Family briefing",28));briefingStatus=text("AI briefing is off",18);briefingStatus->setObjectName("briefingStatus");ai->addWidget(briefingStatus);
     ai->addWidget(text("Add your OpenAI API key from the Mac over USB. The key stays in encrypted storage on this SD card.",17,true));
-    briefingEnabled=new TouchCheckBox("Enable AI briefing");briefingEnabled->setObjectName("briefingEnabled");briefingEnabled->setMinimumHeight(48);ai->addWidget(briefingEnabled);
+    briefingEnabled=new TouchCheckBox("Enable AI briefing");briefingEnabled->setObjectName("briefingEnabled");ai->addWidget(briefingEnabled);
     ai->addWidget(text("Household context",18));ai->addWidget(text("Names, school or lunch priorities, and household routines are saved privately on this frame. This context is included in AI requests when briefing is enabled.",16,true));
     householdContext=new QLineEdit;householdContext->setObjectName("householdContext");householdContext->setReadOnly(true);householdContext->setMaxLength(1600);householdContext->setPlaceholderText("Optional household context");ai->addWidget(householdContext);
     auto *editContext=action("Edit household context");ai->addWidget(editContext,0,Qt::AlignLeft);

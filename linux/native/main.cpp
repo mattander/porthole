@@ -323,7 +323,7 @@ private:
             "QCalendarWidget QAbstractItemView {font-size:24px;selection-background-color:%7;selection-color:%8;} "
             "QMenu {background:%4;border:1px solid %3;} QMenu::item:selected {background:%7;color:%8;} "
             "QTabWidget::pane {border:0;} QTabBar::tab {min-height:26px;padding:10px 24px;margin-right:6px;border:1px solid %3;border-radius:4px;} QTabBar::tab:selected {background:%7;color:%8;} "
-            "QListWidget {border:1px solid %3;border-radius:4px;} QCheckBox {spacing:12px;} QCheckBox::indicator {width:24px;height:24px;}"
+            "QListWidget {border:1px solid %3;border-radius:4px;} QCheckBox {spacing:12px;} QCheckBox::indicator {width:32px;height:32px;}"
         ).arg(background,foreground,border,base,muted,accent,selected,selectedText,pressed).arg(dark?"#d7b18c":"#8b542c"));
         QTextCharFormat weekend;weekend.setForeground(QColor(dark?"#ddad9a":"#9a5949"));
         calendar->setWeekdayTextFormat(Qt::Saturday,weekend);calendar->setWeekdayTextFormat(Qt::Sunday,weekend);
@@ -406,15 +406,10 @@ private:
     }
     void chooseCalendars(const QList<Calendar> &calendars,bool google=false) {
         if(calendars.isEmpty()){calendarStatus="No readable event calendars were found.";renderAgenda();return;}
-        QDialog dialog(settings?static_cast<QWidget*>(settings.data()):this);dialog.setWindowTitle("Choose calendars");dialog.resize(this->size());
-        auto *layout=new QVBoxLayout(&dialog);layout->addWidget(label("Which calendars should appear?",28));
-        layout->addWidget(label("Choose up to 16. Porthole only reads events.",17));
-        auto *list=new QListWidget;list->setStyleSheet("QListWidget::item {min-height:48px;}");
-        for(const auto &calendar:calendars){auto *item=new QListWidgetItem(calendar.name,list);item->setFlags(item->flags()|Qt::ItemIsUserCheckable);item->setCheckState(std::any_of(selected.begin(),selected.end(),[&](const Calendar &chosen){return chosen.url==calendar.url;})?Qt::Checked:Qt::Unchecked);}
-        layout->addWidget(list,1);auto *actions=new QDialogButtonBox(QDialogButtonBox::Cancel|QDialogButtonBox::Ok);layout->addWidget(actions);
-        connect(actions,&QDialogButtonBox::accepted,&dialog,&QDialog::accept);connect(actions,&QDialogButtonBox::rejected,&dialog,&QDialog::reject);
+        QWidget *parent=this;if(settings)parent=settings.data();
+        CalendarPicker dialog(calendars,selected,parent);dialog.resize(this->size());
         if(dialog.exec()!=QDialog::Accepted){calendarStatus="Calendar selection unchanged";renderAgenda();return;}
-        QList<Calendar> chosen;for(int i=0;i<list->count();++i)if(list->item(i)->checkState()==Qt::Checked)chosen<<calendars[i];
+        const auto chosen=dialog.chosenCalendars();
         if(chosen.isEmpty()||chosen.size()>16){calendarStatus="Choose between 1 and 16 calendars to connect.";renderAgenda();return;}
         if(google)caldav.selectGoogleCalendars(chosen);else caldav.selectCalendars(chosen);refreshData();
     }

@@ -1,4 +1,5 @@
 #pragma once
+#include "data.h"
 #include <QDialog>
 #include <QCheckBox>
 #include <QLineEdit>
@@ -8,9 +9,21 @@
 
 class TouchCheckBox:public QCheckBox {
 public:
-    using QCheckBox::QCheckBox;
+    explicit TouchCheckBox(const QString &text,QWidget *parent=nullptr):QCheckBox(text,parent){
+        setMinimumHeight(56);setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);
+    }
 protected:
     bool hitButton(const QPoint &point)const override{return rect().contains(point);}
+    void paintEvent(QPaintEvent *event)override;
+};
+
+class CalendarPicker:public QDialog {
+public:
+    CalendarPicker(const QList<Calendar> &available,const QList<Calendar> &selected,QWidget *parent=nullptr);
+    QList<Calendar> chosenCalendars()const;
+private:
+    struct Choice {Calendar calendar;TouchCheckBox *checkbox;};
+    QList<Choice> choices;
 };
 
 class TouchKeyboard : public QWidget {
