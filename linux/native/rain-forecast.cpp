@@ -77,6 +77,9 @@ void RainStrip::paintEvent(QPaintEvent *){
     double peak=1;for(const auto amount:amounts)peak=qMax(peak,amount);
     QPainter p(this);p.setRenderHint(QPainter::Antialiasing);
     const bool dark=palette().color(QPalette::Window).lightness()<128;const QColor blue=dark?QColor("#66b8f0"):QColor("#2875af");
+    QPainterPath drop;drop.moveTo(12,14);
+    drop.cubicTo(10,19,4,25,4,31);drop.cubicTo(4,42,20,42,20,31);
+    drop.cubicTo(20,25,14,19,12,14);drop.closeSubpath();p.fillPath(drop,blue);
     const qreal left=28,right=width()-28,baseline=50,amplitude=42;
     const auto span=current.secsTo(hours.last().end.addSecs(-3600));if(span<=0)return;
     QList<qreal> positions{left};
