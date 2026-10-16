@@ -76,11 +76,12 @@ a clipped briefing, overlapping agenda or off-screen controls.
 
 ## Rain intensity guide
 
-A continuous blue curve appears only when a fresh current Open-Meteo report
-contains liquid rain or showers. Its height follows forecast rainfall amounts,
-with a faint fill and local time labels only: no separate bars, percentage labels
-or numeric intensity axis. The curve joins the current rate to the next five
-hourly intervals using their actual time spacing. Close time labels are skipped
+A continuous blue curve with a matching raindrop icon on its left appears only
+when a fresh current Open-Meteo report contains liquid rain or showers. Its height
+follows forecast rainfall amounts, with a faint fill and local time labels only:
+no separate bars, percentage labels or numeric intensity axis. The curve joins
+the current rate to the next five hourly intervals using their actual time spacing.
+Close time labels are skipped
 to keep them readable. Its vertical scale is relative to the visible forecast, with a
 1 mm/hour minimum range; it is a qualitative guide to lighter/heavier periods,
 not minute-by-minute radar.
