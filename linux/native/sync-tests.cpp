@@ -3,6 +3,7 @@
 #include <QNetworkRequest>
 #include <QSignalSpy>
 #include <QTimer>
+#include <QPointer>
 #include <QtTest>
 #include <cstring>
 
@@ -20,11 +21,21 @@ public:
 protected:
     qint64 readData(char *data,qint64 max)override{const auto n=qMin(max,body.size()-offset);if(n<=0)return -1;std::memcpy(data,body.constData()+offset,n);offset+=n;return n;}
 };
+class HangingReply:public QNetworkReply {
+public:
+    int aborts=0;
+    HangingReply(const QNetworkRequest &request,QObject *parent):QNetworkReply(parent){setRequest(request);setUrl(request.url());open(QIODevice::ReadOnly);}
+    void abort()override{++aborts;}
+    void lateCompletion(){setFinished(true);emit finished();}
+protected:
+    qint64 readData(char *,qint64)override{return -1;}
+};
 class FakeCalendar:public QNetworkAccessManager {
 public:
-    QString token="one",colour="#1a2b3c80";int reports=0,probes=0,probeCode=207;bool omitColour=false;
+    QString token="one",colour="#1a2b3c80";int reports=0,probes=0,probeCode=207;bool omitColour=false,hangNext=false;QPointer<HangingReply> hanging;
 protected:
     QNetworkReply *createRequest(Operation,const QNetworkRequest &request,QIODevice *output)override{
+        if(hangNext){hangNext=false;hanging=new HangingReply(request,this);return hanging;}
         const auto query=output?output->readAll():QByteArray();QByteArray props,colourProperty;int code=207;
         if(!omitColour)colourProperty="<a:calendar-color>"+colour.toUtf8()+"</a:calendar-color>";
         if(query.contains("current-user-principal"))props="<d:current-user-principal><d:href>/principal/</d:href></d:current-user-principal>";
@@ -39,6 +50,35 @@ protected:
 class SyncTests:public QObject {
     Q_OBJECT
 private slots:
+    void stalledDiscoveryRecoversWithoutRestart(){
+        FakeCalendar network;Caldav client(nullptr,&network,{30,200});
+        QSignalSpy failed(&client,&Caldav::failed),discovered(&client,&Caldav::calendarsReady);
+        network.hangNext=true;client.connectAccount("fixture@example.invalid","abcd-efgh-ijkl-mnop");
+        QTRY_COMPARE(failed.count(),1);QCOMPARE(discovered.count(),0);
+        client.connectAccount("fixture@example.invalid","abcd-efgh-ijkl-mnop");QTRY_COMPARE(discovered.count(),1);
+    }
+    void stalledFetchAndOperationDeadlineRecover(){
+        for(const auto limits:{CalendarTimeouts{30,500},CalendarTimeouts{500,30}}){
+            FakeCalendar network;Caldav client(nullptr,&network,limits);
+            QSignalSpy discovered(&client,&Caldav::calendarsReady),events(&client,&Caldav::eventsReady),failed(&client,&Caldav::failed);
+            client.connectAccount("fixture@example.invalid","abcd-efgh-ijkl-mnop");QTRY_COMPARE(discovered.count(),1);
+            const QList<Calendar> selected{{QUrl("https://caldav.icloud.com/family/"),"Fixture"}};
+            network.hangNext=true;client.fetch(selected,QDate(2026,10,1));
+            // A normal poll while stuck must not keep extending the deadline.
+            client.fetch(selected,QDate(2026,10,1));QTRY_COMPARE(failed.count(),1);QCOMPARE(events.count(),0);
+            client.fetch(selected,QDate(2026,10,1));QTRY_COMPARE(events.count(),1);
+            QCOMPARE(network.reports,1);QCOMPARE(failed.count(),1);
+        }
+    }
+    void cancelledFetchCannotPoisonNextCycle(){
+        FakeCalendar network;Caldav client(nullptr,&network,{500,1000});
+        QSignalSpy discovered(&client,&Caldav::calendarsReady),events(&client,&Caldav::eventsReady),failed(&client,&Caldav::failed);
+        client.connectAccount("fixture@example.invalid","abcd-efgh-ijkl-mnop");QTRY_COMPARE(discovered.count(),1);
+        const QList<Calendar> selected{{QUrl("https://caldav.icloud.com/family/"),"Fixture"}};
+        network.hangNext=true;client.fetch(selected,QDate(2026,10,1));QVERIFY(network.hanging);
+        client.cancelFetch();network.hanging->lateCompletion();
+        client.fetch(selected,QDate(2026,10,1));QTRY_COMPARE(events.count(),1);QCOMPARE(failed.count(),0);
+    }
     void changesOnlyAndMonthCacheBoundaries(){
         FakeCalendar network;Caldav client(nullptr,&network);QSignalSpy discovered(&client,&Caldav::calendarsReady),events(&client,&Caldav::eventsReady);
         QList<Calendar> available;QList<Event> loaded;

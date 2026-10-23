@@ -1,0 +1,33 @@
+[Unit]
+Description=Porthole USB-enrolled read-only diagnostics
+Requires=porthole-firewall.service
+After=porthole-firewall.service network.target
+ConditionDirectoryNotEmpty=/etc/porthole/diagnostics/clients
+[Service]
+User=porthole-diagnostics
+Group=porthole-diagnostics
+SupplementaryGroups=systemd-journal
+LoadCredential=server.pem:/etc/porthole/diagnostics/server.pem
+LoadCredential=server-key.pem:/etc/porthole/diagnostics/server-key.pem
+ExecStart=/usr/bin/python3 -I /usr/local/lib/porthole/diagnostics/diagnostics_server.py
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+CapabilityBoundingSet=
+LockPersonality=yes
+LimitCORE=0
+UMask=0077
+MemoryMax=80M
+TasksMax=12
+InaccessiblePaths=/etc/credstore.encrypted /var/lib/porthole-calendar /var/lib/porthole-updater /var/lib/iwd
+[Install]
+WantedBy=multi-user.target

@@ -1,5 +1,6 @@
 #include "profile.h"
 #include "caldav.h"
+#include "diagnostic-log.h"
 #include <QNetworkReply>
 #include <QNetworkRequest>
 #include <QRegularExpression>
@@ -29,11 +30,21 @@ void applyCalendarMetadata(QList<Event> &events,const Calendar &calendar){
 }
 }
 
-Caldav::Caldav(QObject *parent,QNetworkAccessManager *transport) : QObject(parent), ownedNetwork(this),network(transport?transport:&ownedNetwork) {}
-Caldav::~Caldav() { authorization.fill('\0'); }
+Caldav::Caldav(QObject *parent,QNetworkAccessManager *transport,CalendarTimeouts limits) : QObject(parent), ownedNetwork(this),network(transport?transport:&ownedNetwork),timeouts(limits) {
+    operationDeadline.setSingleShot(true);
+    connect(&operationDeadline,&QTimer::timeout,this,[this]{
+        diagnosticEvent(DiagnosticEvent::CalendarOperationTimeout);
+        failRequest("Calendar refresh timed out. It will retry automatically.");
+    });
+}
+Caldav::~Caldav() { cancelFetch();authorization.fill('\0'); }
 void Caldav::cancelFetch(){
-    ++generation;fetching=false;pendingMonth={};pendingCalendars.clear();
-    for(auto *reply:network->findChildren<QNetworkReply*>())reply->abort();
+    ++generation;operationDeadline.stop();fetching=false;pendingMonth={};pendingCalendars.clear();
+    const auto pending=replies;replies.clear();
+    for(const auto &reply:pending)if(reply){reply->abort();reply->deleteLater();}
+}
+void Caldav::failRequest(const QString &message){
+    cancelFetch();network->clearConnectionCache();emit failed(message);
 }
 void Caldav::disconnectAccount() {
     cancelFetch();cache.clear();cacheMonth={};
@@ -43,8 +54,8 @@ void Caldav::disconnectAccount() {
 void Caldav::request(QUrl url, const QByteArray &method, const QByteArray &body,
                     const QByteArray &depth, Callback done, int redirects,bool optionalProbe) {
     if (!permittedCalendarUrl(url) || redirects > 4) {
-        fetching = false;
-        emit failed("The calendar server returned an unsupported address.");
+        diagnosticEvent(DiagnosticEvent::CalendarRequestFailed);
+        failRequest("The calendar server returned an unsupported address.");
         return;
     }
     QNetworkRequest req(url);
@@ -55,11 +66,19 @@ void Caldav::request(QUrl url, const QByteArray &method, const QByteArray &body,
     req.setRawHeader("Depth", depth);
     auto *reply = network->sendCustomRequest(req, method, body);
     const quint64 token = generation;
+    replies.append(reply);
+    auto *deadline=new QTimer(reply);deadline->setSingleShot(true);
+    connect(deadline,&QTimer::timeout,this,[this,token]{
+        if(token!=generation)return;
+        diagnosticEvent(DiagnosticEvent::CalendarRequestTimeout);
+        failRequest("Calendar request timed out. It will retry automatically.");
+    });
+    deadline->start(timeouts.requestMs);
     connect(reply, &QNetworkReply::readyRead, this, [reply] {
         if (reply->bytesAvailable() > 4 * 1024 * 1024) reply->abort();
     });
     connect(reply, &QNetworkReply::finished, this, [=] {
-        reply->deleteLater();
+        deadline->stop();replies.removeIf([reply](const auto &pending){return !pending||pending==reply;});reply->deleteLater();
         if (token != generation) return;
         const int status = reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
         if (status == 301 || status == 302 || status == 307 || status == 308) {
@@ -68,6 +87,7 @@ void Caldav::request(QUrl url, const QByteArray &method, const QByteArray &body,
             return;
         }
         if (status == 401 || status == 403) {
+            diagnosticEvent(DiagnosticEvent::CalendarRequestFailed,status,reply->error());
             disconnectAccount();
             emit authorizationRejected();
             emit failed("iCloud did not accept calendar access. Check the dedicated app-specific password.");
@@ -75,14 +95,14 @@ void Caldav::request(QUrl url, const QByteArray &method, const QByteArray &body,
         }
         if(optionalProbe&&(status==404||status==405||status==501)){done({},url);return;}
         if (reply->error() != QNetworkReply::NoError || status != 207 || reply->bytesAvailable() > 4*1024*1024) {
-            fetching = false;
-            emit failed("Calendar access failed. Check the connection and the frame's clock, then retry.");
+            diagnosticEvent(DiagnosticEvent::CalendarRequestFailed,status,reply->error());
+            failRequest("Calendar access failed. Check the connection and the frame's clock, then retry.");
             return;
         }
         try { done(reply->readAll(), url); }
         catch (const std::exception &) {
-            fetching = false;
-            emit failed("The calendar response could not be read safely. Previously loaded events are retained.");
+            diagnosticEvent(DiagnosticEvent::CalendarResponseInvalid);
+            failRequest("The calendar response could not be read safely. Previously loaded events are retained.");
         }
     });
 }
@@ -95,6 +115,7 @@ void Caldav::connectAccount(const QString &account, const QByteArray &appPasswor
         emit failed("Use your Apple Account email and a dedicated app-specific password in xxxx-xxxx-xxxx-xxxx format.");
         return;
     }
+    operationDeadline.start(timeouts.operationMs);
     QByteArray pair = account.trimmed().toUtf8() + ':' + appPassword;
     authorization = "Basic " + pair.toBase64();
     pair.fill('\0');
@@ -117,6 +138,7 @@ void Caldav::connectAccount(const QString &account, const QByteArray &appPasswor
                                           canonicalCalendarColour(r.properties.value(AppleCalendarColour))};
                     if (calendars.size() > 50) throw std::runtime_error("Too many calendars");
                 }
+                operationDeadline.stop();diagnosticEvent(DiagnosticEvent::CalendarReady);
                 emit calendarsReady(calendars);
             });
         });
@@ -132,7 +154,7 @@ void Caldav::fetch(const QList<Calendar> &calendars, QDate month) {
         return;
     }
     if(cacheMonth!=month){cache.clear();cacheMonth=month;}
-    fetching = true;
+    fetching = true;operationDeadline.start(timeouts.operationMs);
     activeMonth = month;
     const QDate first(month.year(),month.month(),1);
     reportNext(calendars,0,first.addDays(-7),first.addMonths(1).addDays(7),{},generation);
@@ -145,7 +167,7 @@ void Caldav::reportNext(QList<Calendar> calendars,int index,QDate first,QDate la
             if (a.start.date()==b.start.date() && a.allDay!=b.allDay) return a.allDay;
             return a.start<b.start;
         });
-        fetching = false;
+        fetching = false;operationDeadline.stop();diagnosticEvent(DiagnosticEvent::CalendarFetchComplete);
         emit eventsReady(events,activeMonth);
         if(pendingMonth.isValid()){
             const auto next=pendingMonth;const auto nextCalendars=pendingCalendars;

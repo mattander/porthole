@@ -212,3 +212,9 @@ refresh credential and then checks directly over Wi-Fi. See the complete
 permissions and the seven-day limit for external apps left in Testing.
 An [agent activation guide](linux/google/AGENT-SETUP.md) covers the later
 credential bootstrap, sign-in, deployment, and privacy-safe verification.
+
+## Wi-Fi diagnostics
+
+An optional [read-only diagnostic reader](linux/diagnostics/README.md) uses a
+computer certificate enrolled over physical USB. It exports sanitized calendar
+and briefing failures over mutual TLS, with no remote shell or administration.

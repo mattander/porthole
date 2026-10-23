@@ -136,3 +136,20 @@ location/timezone under Settings → Data. The private on-frame profile is
 separate from source and excluded from safe diagnostics. Household context is
 included as bounded preference data in AI requests; it never changes the safety
 rules, output limit or spending controls.
+
+## Diagnosing blocked updates
+
+Calendar requests have a 45-second absolute deadline in addition to their
+inactivity timeout. Discovery and complete multi-calendar fetches have a
+three-minute deadline. A timeout cancels the old generation, releases the busy
+state and resets pooled connections; the normal minute poll retries without a
+reboot. A temporarily missing selected calendar causes fresh discovery on the
+next poll, preserving selection and the last accepted briefing. Explicit
+credential rejection still requires reconnecting the account.
+
+Fixed structured journal events record source failures, calendar/weather waits,
+briefing request outcomes and response-validation failures. They omit provider
+response bodies, URLs, keys, account information and household text. Source
+successes are sampled every fifteen minutes. An optional
+[USB-enrolled Wi-Fi diagnostic reader](../diagnostics/README.md) retrieves these
+sanitized records without granting remote shell or administration access.

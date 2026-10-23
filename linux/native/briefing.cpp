@@ -1,5 +1,6 @@
 #include "profile.h"
 #include "briefing.h"
+#include "diagnostic-log.h"
 #include <QCryptographicHash>
 #include <QFile>
 #include <QJsonArray>
@@ -313,7 +314,7 @@ void BriefingEngine::invalidate(bool clearText){
     if(clearText){lastFingerprint.clear();checkedSlot.clear();lastCheck={};validatedAt={};generatedPeriod.clear();text.clear();segments={};calendarColours={};generated={};}emit changed();
 }
 void BriefingEngine::calendarUnavailable(bool forget){
-    calendarChecked={};events.clear();invalidate(forget);if(forget)persist();if(enabled)status="AI waiting for fresh calendar data";
+    calendarChecked={};events.clear();invalidate(forget);if(forget)persist();if(enabled){if(status!="AI waiting for fresh calendar data")diagnosticEvent(DiagnosticEvent::BriefingWaitingCalendar);status="AI waiting for fresh calendar data";}
 }
 bool BriefingEngine::refreshCalendarColours(){
     QMap<QString,QJsonObject> previous,current;
@@ -362,8 +363,8 @@ void BriefingEngine::refresh(bool manual){
     if(time.date()<QDate(2026,1,1)){status="AI waiting for the correct clock";return;}
     if(!briefingWakingHours(time)){status="AI resting · next check at 6 AM";return;}
     if(lastCheck.isValid()&&lastCheck>time){status="AI paused · clock moved backwards";return;}
-    if(!calendarChecked.isValid()||calendarChecked.secsTo(time)>300||calendarChecked>time.addSecs(60)){status="AI waiting for fresh calendar data";return;}
-    if(!weatherChecked.isValid()||weatherChecked.secsTo(time)>7200||weatherChecked>time.addSecs(60)){status="AI waiting for fresh weather";return;}
+    if(!calendarChecked.isValid()||calendarChecked.secsTo(time)>300||calendarChecked>time.addSecs(60)){if(status!="AI waiting for fresh calendar data")diagnosticEvent(DiagnosticEvent::BriefingWaitingCalendar);status="AI waiting for fresh calendar data";return;}
+    if(!weatherChecked.isValid()||weatherChecked.secsTo(time)>7200||weatherChecked>time.addSecs(60)){if(status!="AI waiting for fresh weather")diagnosticEvent(DiagnosticEvent::BriefingWaitingWeather);status="AI waiting for fresh weather";return;}
     if(active)return;
     const auto thisMonth=time.toString("yyyy-MM"),thisDay=time.toString("yyyy-MM-dd");
     // A backwards clock cannot reset either allowance.
@@ -393,6 +394,7 @@ void BriefingEngine::refresh(bool manual){
     QNetworkRequest request(QUrl("https://api.openai.com/v1/responses"));
     request.setHeader(QNetworkRequest::ContentTypeHeader,"application/json");request.setRawHeader("Authorization","Bearer "+key);
     request.setAttribute(QNetworkRequest::RedirectPolicyAttribute,QNetworkRequest::ManualRedirectPolicy);request.setTransferTimeout(30000);
+    diagnosticEvent(DiagnosticEvent::BriefingRequestStarted);
     auto *reply=network->post(request,payload);active=reply;status="Writing your family briefing…";emit changed();
     reply->setReadBufferSize(65537);const auto token=generation;
     connect(reply,&QNetworkReply::readyRead,this,[reply]{if(reply->bytesAvailable()>65536)reply->abort();});
@@ -403,8 +405,8 @@ void BriefingEngine::complete(QNetworkReply *reply,QByteArray fingerprint,QStrin
     reply->deleteLater();if(active==reply)active=nullptr;
     if(token!=generation)return;
     const int code=reply->attribute(QNetworkRequest::HttpStatusCodeAttribute).toInt();
-    if(code==401||code==403){authBlocked=true;status="API key rejected · replace it from your Mac";persist();emit changed();return;}
-    if(code!=200||reply->error()!=QNetworkReply::NoError||reply->bytesAvailable()>65536){status=code==429?"AI unavailable · rate limit or credits":"AI unavailable · keeping the last briefing";emit changed();return;}
+    if(code==401||code==403){diagnosticEvent(DiagnosticEvent::BriefingRequestFailed,code,reply->error());authBlocked=true;status="API key rejected · replace it from your Mac";persist();emit changed();return;}
+    if(code!=200||reply->error()!=QNetworkReply::NoError||reply->bytesAvailable()>65536){diagnosticEvent(DiagnosticEvent::BriefingRequestFailed,code,reply->error());status=code==429?"AI unavailable · rate limit or credits":"AI unavailable · keeping the last briefing";emit changed();return;}
     QJsonParseError error;const auto response=QJsonDocument::fromJson(reply->readAll(),&error).object();
     const auto usage=response["usage"].toObject();const qint64 input=usage["input_tokens"].toInteger(-1),output=usage["output_tokens"].toInteger(-1);
     if(input>=0&&input<=40000&&output>=0&&output<=MaximumOutput){
@@ -421,7 +423,8 @@ void BriefingEngine::complete(QNetworkReply *reply,QByteArray fingerprint,QStrin
             const auto parsed=content.object();if(parsed.size()==1&&parsed["segments"].isArray())resolveBriefing(parsed["segments"].toArray(),sources,result,resultSegments,resultColours);
         }
     }
-    if(result.isEmpty()){status="AI reply could not be used · keeping the last briefing";persist();emit changed();return;}
+    if(result.isEmpty()){diagnosticEvent(DiagnosticEvent::BriefingReplyInvalid,code);status="AI reply could not be used · keeping the last briefing";persist();emit changed();return;}
+    diagnosticEvent(DiagnosticEvent::BriefingComplete);
     text=result;segments=resultSegments;calendarColours=resultColours;refreshCalendarColours();generated=timeNow();validatedAt=generated;generatedPeriod=period;cachedProfileRevision=profileRevision(householdProfile());lastFingerprint=fingerprint;status="Briefing up to date";persist();emit changed();
 }
 QJsonObject BriefingEngine::snapshot()const{

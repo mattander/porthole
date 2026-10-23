@@ -2,12 +2,16 @@
 #include "data.h"
 #include <QNetworkAccessManager>
 #include <QObject>
+#include <QTimer>
+#include <QPointer>
 #include <functional>
+
+struct CalendarTimeouts {int requestMs=45000;int operationMs=180000;};
 
 class Caldav : public QObject {
     Q_OBJECT
 public:
-    explicit Caldav(QObject *parent = nullptr,QNetworkAccessManager *transport=nullptr);
+    explicit Caldav(QObject *parent = nullptr,QNetworkAccessManager *transport=nullptr,CalendarTimeouts timeouts={});
     ~Caldav() override;
     void connectAccount(const QString &account, const QByteArray &appPassword);
     void fetch(const QList<Calendar> &calendars, QDate month);
@@ -22,6 +26,10 @@ private:
     QNetworkAccessManager ownedNetwork;
     QNetworkAccessManager *network;
     QByteArray authorization;
+    CalendarTimeouts timeouts;
+    QTimer operationDeadline;
+    QList<QPointer<QNetworkReply>> replies;
+    void failRequest(const QString &message);
     quint64 generation = 0;
     bool fetching = false;
     QDate activeMonth, pendingMonth;

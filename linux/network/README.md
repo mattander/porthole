@@ -11,3 +11,10 @@ The native Settings → Wi-Fi picker talks to iwd over the system bus. It suppor
 `firewall.nft` owns only the `inet porthole` table. Incoming established traffic, loopback, ICMP and DHCP replies are allowed; unsolicited incoming traffic and forwarding are dropped. Outgoing traffic is allowed for the user's calendar, weather and time services. mDNS and LLMNR are disabled. This does not by itself isolate the frame from other devices on the same LAN; a guest/IoT network can provide that separation.
 
 No Wi-Fi password belongs in a script, command argument, repository, chat, diagnostic log or screenshot. Joining a real network requires the owner to select it and type its password on the frame. iCloud authentication is a separate Settings action and uses its dedicated app-specific password.
+
+The optional [Wi-Fi diagnostic reader](../diagnostics/README.md) adds only an
+IPv4 TCP 9443 allowance on `wlan0` while at least one computer certificate has
+been enrolled through the physical USB console. It requires mutual TLS and
+exports a fixed sanitized log schema. SSH remains disabled. Removing the last
+computer closes the listener and firewall allowance. Firewall replacements are
+validated and applied as one nftables transaction.

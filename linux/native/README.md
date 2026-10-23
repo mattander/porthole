@@ -240,3 +240,15 @@ budget govern replacement with the subject-only format; settings and spending
 history are retained. Cached source mappings
 are private alongside the existing briefing cache; local colour updates do not
 require another paid request. Request timing and spending limits still apply.
+
+## Fetch recovery and retained diagnostics
+
+CalDAV discovery and fetch cycles use absolute deadlines as well as network
+inactivity timeouts. Deadline failures cancel the request generation and release
+busy state before the next minute poll; late callbacks cannot overwrite a newer
+fetch. A temporarily incomplete calendar listing is retried without deleting
+saved selections or the last briefing. Genuine authorization rejection keeps
+its explicit reconnect requirement. Fixed journal records expose timeout,
+source freshness and briefing outcome categories without private payloads.
+See [Wi-Fi diagnostic access](../diagnostics/README.md) for USB-enrolled,
+certificate-authenticated retrieval and revocation.
