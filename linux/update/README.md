@@ -6,8 +6,9 @@ updates provides **Check for updates** and **Install updates automatically**.
 Pausing affects future automatic checks; an install already in progress finishes.
 Manual checks work while paused and have a one-minute check cooldown.
 
-No device discovery, MAC recording, inbound HTTP listener, SSH or router port
-forward is needed. The frame makes outbound HTTPS requests for GitHub release
+The update channel needs no device discovery, MAC recording, inbound HTTP
+listener, SSH or router port forward. The separately USB-enrolled diagnostic
+reader is optional; see [diagnostic access](../diagnostics/README.md). The frame makes outbound HTTPS requests for GitHub release
 assets. The existing inbound firewall stays in place. No GitHub token is stored
 on the frame; the release repository must be public.
 

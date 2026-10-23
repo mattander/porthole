@@ -1,6 +1,18 @@
 #!/bin/sh
 set -eu
+# Replace our table atomically, retaining the previous firewall if validation fails.
+rules=$(mktemp)
+trap 'rm -f "$rules"' EXIT HUP INT TERM
 if nft list table inet porthole >/dev/null 2>&1; then
-    nft delete table inet porthole
+    printf 'delete table inet porthole\n' > "$rules"
 fi
-nft -f /etc/porthole/firewall.nft
+cat /etc/porthole/firewall.nft >> "$rules"
+# The optional reader has no listener or inbound allowance until USB enrollment.
+for certificate in /etc/porthole/diagnostics/clients/*.pem; do
+    if test -f "$certificate"; then
+        printf '\nadd rule inet porthole input iifname "wlan0" tcp dport 9443 ct state new limit rate 12/minute burst 8 packets accept\n' >> "$rules"
+        break
+    fi
+done
+nft -c -f "$rules"
+nft -f "$rules"

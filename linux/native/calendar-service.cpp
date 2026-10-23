@@ -4,6 +4,7 @@
 #include "calendar-sources.h"
 #include <QSaveFile>
 #include "briefing.h"
+#include "diagnostic-log.h"
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QFile>
@@ -63,13 +64,13 @@ public:
         });
         connect(&briefingCalendar,&Caldav::calendarsReady,this,[this](const QList<Calendar> &items){
             briefingConnecting=false;briefingReady=true;
-            for(const auto &c:selected)if(!std::any_of(items.begin(),items.end(),[&](const Calendar &v){return c.url==v.url;})){briefingBlocked=true;briefingReady=false;briefing.calendarUnavailable(true);return;}
+            for(const auto &c:selected)if(!std::any_of(items.begin(),items.end(),[&](const Calendar &v){return c.url==v.url;})){diagnosticEvent(DiagnosticEvent::UpcomingSelectionMissing);briefingReady=false;briefing.calendarUnavailable();return;}
             refreshUpcoming();
         });
         connect(&briefingCalendar,&Caldav::eventsReady,this,[this](const QList<Event> &items,QDate loaded){
             if(loaded==QDate(today().year(),today().month(),1)){appleUpcomingEvents=items;appleUpcomingChecked=QDateTime::currentDateTimeUtc();publishUpcoming();}
         });
-        connect(&briefingCalendar,&Caldav::failed,this,[this](const QString &){briefingConnecting=false;briefingReady=false;appleUpcomingChecked={};upcomingEpoch={};briefing.calendarUnavailable();});
+        connect(&briefingCalendar,&Caldav::failed,this,[this](const QString &){briefingConnecting=false;briefingReady=false;appleUpcomingChecked={};upcomingEpoch={};diagnosticEvent(DiagnosticEvent::UpcomingUnavailable);briefing.calendarUnavailable();});
         connect(&briefingCalendar,&Caldav::authorizationRejected,this,[this]{briefingBlocked=true;briefing.calendarUnavailable(true);});
         server.setSocketOptions(QLocalServer::UserAccessOption|QLocalServer::GroupAccessOption);
         connect(&server,&QLocalServer::newConnection,this,[this]{while(server.hasPendingConnections())accept(server.nextPendingConnection());});
@@ -99,7 +100,7 @@ private:
         CalendarSource apple=CalendarNotConfigured{},g=CalendarNotConfigured{};
         if(!account.isEmpty()||remembered){apple=CalendarUnavailable{};if(!selected.isEmpty()&&appleUpcomingChecked.isValid())apple=CheckedCalendarData{appleUpcomingEvents,appleUpcomingChecked};}
         if(googleCredentials||!googleSelected.isEmpty()){g=CalendarUnavailable{};if(!googleSelected.isEmpty()&&googleUpcomingChecked.isValid())g=CheckedCalendarData{googleUpcomingEvents,googleUpcomingChecked};}
-        if(const auto merged=combineCalendarSources(apple,g,upcomingEpoch)){upcomingEpoch={};briefing.calendarData(merged->events,merged->checked);}
+        if(const auto merged=combineCalendarSources(apple,g,upcomingEpoch)){upcomingEpoch={};diagnosticEvent(DiagnosticEvent::UpcomingReady);briefing.calendarData(merged->events,merged->checked);}
     }
     void resetUpcoming(bool forget){upcomingEpoch={};appleUpcomingEvents.clear();appleUpcomingChecked={};briefingCalendar.disconnectAccount();briefingReady=briefingConnecting=briefingBlocked=false;briefing.calendarUnavailable(forget);}
     void refreshUpcoming(){
