@@ -79,9 +79,11 @@ private:
     QList<Dot> colours;
 };
 QString BriefingWidget::visibleText()const{return body->text();}
+QSize BriefingWidget::sizeHint()const{return {0,238};}
+QSize BriefingWidget::minimumSizeHint()const{return {0,174};}
 QString fittingBriefing(QString value,const QFont &,QSize){return boundedBriefing(value);}
 BriefingWidget::BriefingWidget(QWidget *parent):QWidget(parent){
-    setObjectName("familyBriefing");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Fixed);setFixedHeight(174);
+    setObjectName("familyBriefing");setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Expanding);setMinimumHeight(174);setMaximumHeight(238);
     auto *layout=new QVBoxLayout(this);layout->setContentsMargins(0,0,0,0);layout->setSpacing(8);
     auto *title=text("Family briefing",18);auto font=title->font();font.setWeight(QFont::DemiBold);title->setFont(font);title->setFixedHeight(24);
     auto *header=new QHBoxLayout;header->setSpacing(8);header->addWidget(title);
@@ -128,7 +130,7 @@ void BriefingWidget::fit(){
     const bool hasKey=!key->text().isEmpty();keyArea->setVisible(hasKey);
     const int keyWidth=qMax(1,width()-16),keyHeight=hasKey?qMin(48,key->heightForWidth(keyWidth)):0;
     key->setFixedSize(keyWidth,key->heightForWidth(keyWidth));keyArea->setFixedHeight(keyHeight);
-    const int maximumHeight=142-(hasKey?keyHeight+8:0),bodyWidth=qMax(1,width()-3);
+    const int maximumHeight=height()-32-(hasKey?keyHeight+8:0),bodyWidth=qMax(1,width()-3);
     auto font=interfaceFont(21);
     auto measured=wrappedHeight(fullText,font,bodyWidth);
     while(font.pixelSize()>1&&(!measured||*measured>maximumHeight-3)){font.setPixelSize(font.pixelSize()-1);measured=wrappedHeight(fullText,font,bodyWidth);}

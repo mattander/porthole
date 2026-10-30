@@ -41,9 +41,12 @@ UIDs, descriptions, attendees and locations. At most 60 upcoming events and a
 bounded input size are included; omitted events are explicitly counted.
 
 Three prompts use the configured local time: morning at 6 AM, midday at noon, and
-evening at 4 PM. Morning emphasizes household-specific special lunch days, school events,
-and weather for clothing; weekday midday looks ahead three or four days and
-increasingly toward weekend plans. Weekend midday focuses on remaining plans and
+evening at 4 PM. Every period covers today's remaining medical appointments,
+vaccinations and other time-sensitive commitments, with supplied clock times,
+before routine school/lunch facts, later plans or weather. School priorities must
+not crowd out an adult's appointment. Morning then emphasizes household-specific
+special lunch days and school events; weekday midday uses remaining space to look
+ahead three or four days and increasingly toward weekend plans. Weekend midday focuses on remaining plans and
 tomorrow, with Monday preparation on Sunday. Evening emphasizes tonight and
 tomorrow's school/lunch facts, early starts, and weather. Important later events
 retain their actual weekday instead of being pulled into tomorrow. Household
@@ -64,15 +67,18 @@ caching retention can still apply. See [OpenAI data controls](https://developers
 
 ## Physical display limits
 
-New briefings target **140–200 Unicode code points**, with a hard maximum of
-**240**, two short sentences, and the two or three most useful facts. The prompt
-avoids repeating the forecast's highs/lows. Each event phrase references exactly
+New briefings target **220–300 Unicode code points**, with a hard maximum of
+**320**, up to three short sentences, and three to five useful facts on busy days.
+The third sentence makes room for another important remaining commitment today;
+quiet days use less text. The prompt avoids repeating the forecast's highs/lows.
+Each event phrase references exactly
 one event; facts from separate school calendars cannot share one generated source
 segment. Weather and connecting words stay neutral.
 Oversized or multi-event segments are rejected, retaining the last valid briefing.
 Previously cached briefings up to 400 characters retain their complete text and
-source mappings. The 174-pixel panel reserves 142 pixels for the body and colour
-key. The font adapts to show the entire bounded text, with no display ellipsis.
+source mappings. The panel uses spare column space up to 238 pixels (206 for the
+body and colour key), with a 174-pixel minimum when weather needs more room.
+The font adapts to show the entire bounded text, with no display ellipsis.
 Long highlighted legacy text with its colour key, unbroken words, both orientations, and narrow
 fixture widths are covered by tests. Cache/source state appears beside the AI
 attribution. Demo mode uses fictional data and never makes AI requests.

@@ -12,6 +12,8 @@ public:
     explicit BriefingWidget(QWidget *parent=nullptr);
     void updateBriefing(const QJsonObject &state,bool sample=false);
     QString visibleText() const;
+    QSize sizeHint() const override;
+    QSize minimumSizeHint() const override;
 protected:
     void resizeEvent(QResizeEvent *event)override;
 private:

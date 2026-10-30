@@ -70,11 +70,47 @@ private slots:
             const auto segments=prompt["text"].toObject()["format"].toObject()["schema"].toObject()["properties"].toObject()["segments"].toObject();
             QCOMPARE(segments["maxItems"].toInt(),BriefingSegmentLimit);QCOMPARE(segments["items"].toObject()["properties"].toObject()["event_refs"].toObject()["maxItems"].toInt(),BriefingGenerationReferencesPerSegmentLimit);
             QCOMPARE(segments["items"].toObject()["properties"].toObject()["text"].toObject()["maxLength"].toInt(),BriefingGenerationCharacterLimit);
-            QVERIFY(instructions.contains("140–200"));QVERIFY(instructions.contains("person's name"));QVERIFY(instructions.contains("Split different events"));
+            QVERIFY(instructions.contains("220–300"));QVERIFY(instructions.contains(QString("never exceed %1 characters").arg(BriefingGenerationCharacterLimit)));
+            QVERIFY(instructions.contains("up to 3 short, natural sentences"));QVERIFY(instructions.contains("person's name"));QVERIFY(instructions.contains("Split different events"));
+            QVERIFY(instructions.contains("APPOINTMENTS FIRST"));QVERIFY(instructions.contains("medical appointments, vaccinations"));
+            QVERIFY(instructions.contains("Do not let school/lunch priorities crowd out an adult's appointment"));
             QVERIFY(instructions.contains("HIGHLIGHT ONLY THE SUBJECT"));QVERIFY(instructions.contains("normal spaces"));
             QVERIFY(prompt["input"].toString().contains("Prioritize school lunches"));
         }
         QCOMPARE(briefingPeriod(QDateTime(QDate(2026,10,14),QTime(15,59),QTimeZone("America/New_York"))),BriefingPeriod::Midday);
+    }
+    void busyDayKeepsAppointmentsInInputAndFitsThreeSentences(){
+        const QString copy="Alex's vaccine appointment is today at 4 PM, and Sam's dentist appointment is at 5 PM. Jamie's school photo day and Casey's provided pasta lunch are today. The family library pickup runs until 6 PM today, so these are the remaining timed stops alongside the school events.";
+        QVERIFY(copy.toUcs4().size()>240);QVERIFY(copy.toUcs4().size()<=BriefingGenerationCharacterLimit);
+        auto values=events();
+        for(const auto &title:{"School photo day","Provided pasta lunch","Library pickup","Vaccine appointment","Dentist appointment"}){
+            auto event=events().first();event.title=title;event.start=QDateTime(now().date(),QTime(16,0),configuredZone());event.end=event.start.addSecs(3600);values.append(event);
+        }
+        const auto input=briefingContext(values,{},now())["events"].toArray();QCOMPARE(input.size(),values.size());
+        QCOMPARE(input[4].toObject()["title"].toString(),QString("Vaccine appointment"));
+        QCOMPARE(input[4].toObject()["days_from_today"].toInt(-1),0);
+        QTemporaryDir directory;FixtureNetwork network;
+        network.resultSegments={
+            QJsonObject{{"text","Alex's vaccine appointment"},{"event_refs",QJsonArray{"e5"}}},
+            QJsonObject{{"text",copy.mid(QString("Alex's vaccine appointment").size())},{"event_refs",QJsonArray{}}}};
+        BriefingEngine engine(directory.filePath("state"),"sk-"+QByteArray(40,'a'),nullptr,&network,[]{return now();});
+        engine.configure(true,"School lunches matter",100);engine.calendarData(values,now());engine.weatherData(weather());
+        QTRY_COMPARE(engine.snapshot()["text"].toString(),copy);
+        BriefingWidget widget;widget.show();
+        for(const int width:{620,744,300}){
+            widget.resize(width,238);widget.updateBriefing(engine.snapshot());QTest::qWait(10);
+            QCOMPARE(widget.visibleText(),copy);auto *body=widget.findChild<QLabel*>("briefingText");QVERIFY(body);
+            auto *key=widget.findChild<QWidget*>("briefingKeyArea");QVERIFY(key);QVERIFY(key->isVisible());
+            QTextLayout layout(copy,body->font());QTextOption option;option.setWrapMode(QTextOption::WrapAtWordBoundaryOrAnywhere);layout.setTextOption(option);
+            layout.beginLayout();qreal height=0;
+            while(true){auto line=layout.createLine();if(!line.isValid())break;line.setLineWidth(body->width()-3);height+=line.height();}
+            layout.endLayout();QVERIFY(height<=body->height());if(width>=620)QCOMPARE(body->font().pixelSize(),21);
+            QVERIFY(widget.rect().contains(QRect(key->mapTo(&widget,QPoint()),key->size())));
+        }
+        network.result=QString(BriefingGenerationCharacterLimit+1,'W');network.resultSegments={};
+        fixtureTime=fixtureTime.addSecs(301);engine.calendarData(values,now());engine.refresh(true);
+        QTRY_COMPARE(network.requests,2);QTRY_VERIFY(engine.snapshot()["status"].toString().contains("could not be used"));
+        QCOMPARE(engine.snapshot()["text"].toString(),copy);
     }
     void fridayEventsCannotBecomeThursdaysInput(){
         fixtureTime.setTime(QTime(16,24));const auto friday=QDateTime(QDate(2026,10,16),QTime(0,0),configuredZone());

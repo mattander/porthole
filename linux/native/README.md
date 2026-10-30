@@ -102,10 +102,11 @@ rainfall rates remain available to assistive technology.
 
 ## Family briefing
 
-The AI briefing sits below the weather in a fixed-height area. It has a backend
-240-character generation limit (usually 140–200 characters) and a separate
-pixel-fit renderer for both orientations. It selects the two or three most useful
-facts instead of repeating the forecast's highs/lows. Previously cached briefings
+The AI briefing sits below the weather in a bounded area. It has a backend
+320-character generation limit (usually 220–300 characters, up to three sentences)
+and a separate pixel-fit renderer for both orientations. On busy days it selects
+three to five useful facts, putting today's remaining appointments and time-sensitive commitments ahead
+of routine school details, later plans and weather. Previously cached briefings
 up to 400 characters remain readable without discarding their source mappings.
 A small key directly beneath tinted phrases pairs calendar colours with readable
 names, once per referenced calendar. It hides for plain-text briefings and neutral
@@ -141,8 +142,9 @@ It expects the tested app and calendar binaries in `bin/` and `files.sha256`,
 preserves the previous binaries, and restarts the dependent orientation watcher
 with the kiosk. It does not replace credential helpers or service configuration.
 
-The briefing retains its 174-pixel panel and 142-pixel body budget, shared with
-the calendar colour key. The full-height weather column makes room for larger
+The briefing uses spare column space up to a 238-pixel panel and 206-pixel body
+budget, shared with the calendar colour key. It can shrink to 174 pixels when
+weather needs more room. The full-height weather column makes room for larger
 section gaps while retaining text sizes and the existing readability floor. It fits
 the complete bounded response by adapting its
 font rather than appending a display ellipsis. Morning/noon/4 PM prompts follow
@@ -229,10 +231,11 @@ before tinting. Tap the briefing to see its phrase-to-calendar source labels;
 the same descriptions are exposed to assistive technology. Titles and generated
 text remain plain text, never model-supplied markup.
 
-New generated briefings are limited to 240 Unicode codepoints and fitted inside
-the fixed panel in both orientations; the renderer still supports 400-character
-legacy caches. `--demo --briefing-school-preview` shows fictional school phrases
-with separate yellow/purple tints and a blue home-calendar phrase. Invalid segment metadata displays plain
+New generated briefings are limited to 320 Unicode codepoints and fitted inside
+the bounded panel in both orientations; the renderer still supports 400-character
+legacy caches. `--demo --briefing-school-preview` shows a fictional busy day with
+school phrases in yellow/purple tints and appointments in blue home-calendar tints.
+Invalid segment metadata displays plain
 text, while an invalid generated response keeps the last accepted briefing.
 Legacy cached briefings remain readable without whole-sentence styling, and their
 segment-boundary spacing is repaired. The existing request cooldown, schedule and
