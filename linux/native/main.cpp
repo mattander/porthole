@@ -14,6 +14,7 @@
 #include "event-widgets.h"
 #include "rain-forecast.h"
 #include "diagnostics.h"
+#include "graphics-diagnostics.h"
 #include <QTabWidget>
 #include "wifi.h"
 #include <QApplication>
@@ -106,6 +107,7 @@ class Dashboard : public QWidget {
     WeatherIcon *currentIcon=new WeatherIcon(64);
     DashboardFooter *footer=new DashboardFooter;
     Diagnostics diagnostics;
+    GraphicsDiagnostics graphics;
     bool weatherStale=false,hadWifi=false;
     QDateTime lastCalendar,lastSummary;
     QLabel *weatherLocation=label("Weather location",21);
@@ -133,7 +135,7 @@ public:
         if(auto *body=briefing->findChild<QLabel*>("briefingText"))QTextStream(stdout)<<"Briefing preview: "<<briefing->width()<<"x"<<briefing->height()<<", body "<<body->width()<<"x"<<body->height()<<", font "<<body->font().pixelSize()<<"px\n";
         return true;
     }
-    explicit Dashboard(bool sample) {
+    explicit Dashboard(bool sample):graphics(!sample,this) {
         setWindowTitle("Porthole");setMinimumSize(640,600);
         caption->setProperty("tone","secondary");feels->setProperty("tone","secondary");sunTimes->setProperty("tone","secondary");
         auto *root=new QVBoxLayout(this);root->setContentsMargins(32,30,32,18);root->setSpacing(20);
@@ -146,7 +148,7 @@ public:
         agenda->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Ignored);
         auto *right=new DashboardColumnLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(dayTabs);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
-        QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);right->addWidget(scroll,1);
+        QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);graphics.watch(*scroll);right->addWidget(scroll,1);
         right->addWidget(footer,0,Qt::AlignRight);
         eventLayout->setContentsMargins(0,0,8,0);eventLayout->setSpacing(26);eventLayout->setAlignment(Qt::AlignTop);
         calendar->setFirstDayOfWeek(Qt::Sunday);calendar->setGridVisible(false);
