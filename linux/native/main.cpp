@@ -130,6 +130,7 @@ public:
         if(!rect().contains(QRect(footer->mapTo(this,QPoint()),footer->size())))return fail("Footer clipped");
         if(!rect().contains(QRect(agenda->mapTo(this,QPoint()),agenda->size())))return fail("Agenda clipped");
         if(auto *key=briefing->findChild<QWidget*>("briefingKeyArea"))if(key->isVisible()&&!briefing->rect().contains(key->geometry()))return fail("Briefing key clipped");
+        if(auto *body=briefing->findChild<QLabel*>("briefingText"))QTextStream(stdout)<<"Briefing preview: "<<briefing->width()<<"x"<<briefing->height()<<", body "<<body->width()<<"x"<<body->height()<<", font "<<body->font().pixelSize()<<"px\n";
         return true;
     }
     explicit Dashboard(bool sample) {
@@ -141,7 +142,7 @@ public:
         auto *divider=new QFrame;divider->setFrameShape(QFrame::HLine);divider->setFixedHeight(1);left->addWidget(divider);left->addSpacing(3);
         auto *current=new QHBoxLayout;current->setSpacing(18);current->addWidget(currentIcon);current->addWidget(temperature);
         auto *weatherCopy=new QVBoxLayout;weatherCopy->setSpacing(8);weatherCopy->addWidget(weatherLocation);weatherCopy->addWidget(weather);weatherCopy->addWidget(feels);weatherCopy->addWidget(sunTimes);current->addLayout(weatherCopy,1);left->addLayout(current);
-        left->addWidget(rain);left->addWidget(forecast);left->addSpacing(4);left->addWidget(briefing);left->addStretch();
+        left->addWidget(rain);left->addWidget(forecast);left->addSpacing(4);left->addWidget(briefing,1);left->addStretch();
         agenda->setSizePolicy(QSizePolicy::Expanding,QSizePolicy::Ignored);
         auto *right=new DashboardColumnLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(dayTabs);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
@@ -244,13 +245,17 @@ public:
             if(qApp->arguments().contains("--briefing-long"))briefing->updateBriefing({{"enabled",true},{"text","Sample: There is a special lunch day tomorrow and a school event at 10 AM, so check the calendar for any items to bring. Saturday’s morning plans overlap; check who is handling each commitment. Tomorrow’s forecast is cool with rain, which may affect outdoor plans and clothing choices. Sunday’s family visit starts at noon; consider any preparation listed in the event before leaving."},{"status","Preview"}});
             if(qApp->arguments().contains("--briefing-school-preview")){
                 const QJsonArray parts{
-                    QJsonObject{{"text","Sample: Friday brings "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","Sample: "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","Alex’s vaccine appointment"},{"calendar_ids",QJsonArray{"sample-home"}}},
+                    QJsonObject{{"text"," is today at 4 PM and "},{"calendar_ids",QJsonArray{}}},
+                    QJsonObject{{"text","Sam’s dentist appointment"},{"calendar_ids",QJsonArray{"sample-home"}}},
+                    QJsonObject{{"text"," is at 5 PM. Friday brings "},{"calendar_ids",QJsonArray{}}},
                     QJsonObject{{"text","Alex’s provided pasta lunch"},{"calendar_ids",QJsonArray{"sample-school-a"}}},
                     QJsonObject{{"text"," and "},{"calendar_ids",QJsonArray{}}},
                     QJsonObject{{"text","Sam’s picture day"},{"calendar_ids",QJsonArray{"sample-school-b"}}},
                     QJsonObject{{"text",". The "},{"calendar_ids",QJsonArray{}}},
                     QJsonObject{{"text","library pickup"},{"calendar_ids",QJsonArray{"sample-home"}}},
-                    QJsonObject{{"text"," is tomorrow, 8 AM–6 PM."},{"calendar_ids",QJsonArray{}}}};
+                    QJsonObject{{"text"," window runs from 3 PM until 6 PM today, overlapping both appointments if the same person handles them."},{"calendar_ids",QJsonArray{}}}};
                 QString copy;for(const auto &part:parts)copy+=part.toObject()["text"].toString();
                 briefing->updateBriefing({{"enabled",true},{"text",copy},{"segments",parts},{"calendar_colours",QJsonArray{
                     QJsonObject{{"id","sample-school-a"},{"name","School A"},{"colour","#FFFF00"}},

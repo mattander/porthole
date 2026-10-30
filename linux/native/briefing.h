@@ -9,7 +9,7 @@
 #include <functional>
 
 constexpr int BriefingCharacterLimit=400;
-constexpr int BriefingGenerationCharacterLimit=240;
+constexpr int BriefingGenerationCharacterLimit=320;
 constexpr int BriefingGenerationReferencesPerSegmentLimit=1;
 constexpr int BriefingSubjectCharacterLimit=60;
 constexpr int BriefingSubjectWordLimit=8;
