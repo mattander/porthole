@@ -148,7 +148,7 @@ class DiagnosticTests(unittest.TestCase):
         packets = []
         for code in METRICS:
             message = {'v': 1, 'event': 'calendar_ready', 'http': code, 'network': 1}
-            entry = {'_SYSTEMD_UNIT': 'porthole-kiosk.service', '__REALTIME_TIMESTAMP': '1792756800000000',
+            entry = {'_SYSTEMD_UNIT': 'porthole-calendar.service', '__REALTIME_TIMESTAMP': '1792756800000000',
                      'MESSAGE': 'PORTHOLE_DIAGNOSTIC ' + json.dumps(message), 'PRIVATE': 'secret'}
             accepted = record(entry)
             self.assertIsNotNone(accepted)
@@ -162,10 +162,11 @@ class DiagnosticTests(unittest.TestCase):
         malformed = [{**packets[0], 'network': True}, {**packets[0], 'http': '560'},
                      {**packets[0], 'network': 1000}, {**packets[0], 'service': 'foreign.service'}]
         self.assertNotIn('graphics', decode_graphics({'events': malformed}))
+        self.assertEqual(value['graphics'][-1]['metric'], 'backend_graphics_protocol')
 
     def test_graphics_numeric_schema_matches_native_logging(self):
         import re
-        source = Path(__file__).parent.parent / 'native' / 'graphics-diagnostics.cpp'
+        source = Path(__file__).parent.parent / 'native' / 'diagnostic-log.cpp'
         codes = re.findall(r'case GraphicsMetric::[A-Za-z0-9]+:return ([0-9]+);', source.read_text())
         self.assertEqual(len(codes), len(set(codes)))
         self.assertEqual({int(code) for code in codes}, set(METRICS))

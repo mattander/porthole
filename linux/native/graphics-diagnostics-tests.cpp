@@ -1,4 +1,10 @@
 #include "graphics-diagnostics.h"
+#include "calendar-client.h"
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QSharedPointer>
+#include <QTemporaryDir>
+#include <QSignalSpy>
 #include <QApplication>
 #include <QJsonDocument>
 #include <QLabel>
@@ -17,6 +23,38 @@ private slots:
         QCOMPARE((*record)["http"].toInt(),570);QCOMPARE((*record)["network"].toInt(),250);
         QVERIFY(QJsonDocument(*record).toJson(QJsonDocument::Compact).size()<180);
         QVERIFY(!graphicsDiagnosticRecord(GraphicsMetric::UiGapMs,-1));QVERIFY(!graphicsDiagnosticRecord(GraphicsMetric::UiGapMs,1000));
+    }
+    void relayRequestsRejectInvalidOrPrivatePayloads(){
+        const auto request=graphicsDiagnosticRequest(GraphicsMetric::UiGapMs,180);QVERIFY(request);
+        const auto parsed=parseGraphicsDiagnosticRequest(*request);QVERIFY(parsed);QCOMPARE(parsed->metric,GraphicsMetric::UiGapMs);QCOMPARE(parsed->value,180);
+        for(const auto value:{QJsonValue(-1),QJsonValue(1000),QJsonValue(1.5),QJsonValue(true),QJsonValue("private")}){
+            auto bad=*request;bad["value"]=value;QVERIFY(!parseGraphicsDiagnosticRequest(bad));
+        }
+        auto extra=*request;extra["private"]="event title";QVERIFY(!parseGraphicsDiagnosticRequest(extra));
+        auto unknown=*request;unknown["metric"]=559;QVERIFY(!parseGraphicsDiagnosticRequest(unknown));
+        unknown["metric"]=578;QVERIFY(!parseGraphicsDiagnosticRequest(unknown));
+        QVERIFY(!graphicsDiagnosticRequest(GraphicsMetric::BackendProtocol,2));
+    }
+    void appRelaysPacketsThroughTheExistingLocalSocket(){
+        QTemporaryDir directory;QLocalServer server;const auto path=directory.filePath("socket");QVERIFY(server.listen(path));
+        int received=0;QJsonObject logged;
+        connect(&server,&QLocalServer::newConnection,this,[&]{while(server.hasPendingConnections()){
+            auto *socket=server.nextPendingConnection();auto bytes=QSharedPointer<QByteArray>::create();
+            connect(socket,&QLocalSocket::disconnected,socket,&QObject::deleteLater);
+            connect(socket,&QLocalSocket::readyRead,socket,[&,socket,bytes]{
+                *bytes+=socket->readAll();if(!bytes->contains('\n'))return;
+                const auto request=QJsonDocument::fromJson(*bytes).object();bytes->clear();
+                if(request["type"]==QJsonValue("graphicsDiagnostics")){
+                    ++received;if(const auto sample=parseGraphicsDiagnosticRequest(request))logged=graphicsDiagnosticRecord(sample->metric,sample->value).value_or(QJsonObject{});
+                }
+                socket->write("{\"ok\":true}\n");socket->disconnectFromServer();
+            });
+        }});
+        CalendarClient client(nullptr,false,path);QSignalSpy status(&client,&CalendarClient::statusChanged);
+        client.graphicsDiagnostic(GraphicsMetric::UiGapMs,180);QTRY_COMPARE(received,1);
+        QCOMPARE(logged["event"].toString(),QString("calendar_ready"));QCOMPARE(logged["http"].toInt(),570);QCOMPARE(logged["network"].toInt(),180);
+        QCOMPARE(status.count(),0);client.graphicsDiagnostic(GraphicsMetric::UiGapMs,1000);QTest::qWait(30);QCOMPARE(received,1);
+        CalendarClient preview(nullptr,true,path);preview.graphicsDiagnostic(GraphicsMetric::UiGapMs,180);QTest::qWait(30);QCOMPARE(received,1);
     }
     void rawWarningsOnlyBecomeFixedCategories(){
         QVERIFY(!graphicsWarningCode("qt.network","private@example.invalid password=secret"));

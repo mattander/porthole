@@ -5,6 +5,7 @@
 #include <QSaveFile>
 #include "briefing.h"
 #include "diagnostic-log.h"
+#include <QElapsedTimer>
 #include <QCoreApplication>
 #include <QTextStream>
 #include <QFile>
@@ -33,6 +34,7 @@ QByteArray readApiKey(){QFile f(qEnvironmentVariable("CREDENTIALS_DIRECTORY")+"/
 QDate today(){return QDateTime::currentDateTimeUtc().toTimeZone(configuredZone()).date();}
 }
 class CalendarService:public QObject {
+    QElapsedTimer graphicsWindow;int graphicsPackets=0;
     Caldav caldav{this},briefingCalendar{this};GoogleCalendar google{this},googleUpcoming{this};
     QList<Calendar> googleAvailable,googleSelected;QList<Event> googleEvents,appleUpcomingEvents,googleUpcomingEvents;
     QDateTime googleChecked,appleUpcomingChecked,googleUpcomingChecked,upcomingEpoch;QString googleStatus="Connect Google using the Mac setup helper",googleIssue;
@@ -185,6 +187,12 @@ private:
             const auto kind=request["type"].toString();
             if(kind=="ping")reply={{"ok",true},{"instance",instance}};
             else if(kind=="status")reply=snapshot(request["eventsRevision"].toInteger(-1));
+            else if(kind=="graphicsDiagnostics"){
+                if(!graphicsWindow.isValid()||graphicsWindow.elapsed()>=60000){graphicsWindow.start();graphicsPackets=0;}
+                const auto sample=parseGraphicsDiagnosticRequest(request);const bool accepted=sample&&graphicsPackets<240;
+                if(accepted){++graphicsPackets;writeGraphicsDiagnostic(sample->metric,sample->value);}
+                reply={{"ok",accepted}};
+            }
             else if(kind=="eventDetails")reply=calendarEventDetailsJson(events+googleEvents,request["reference"].toString());
             else if(kind=="login"){
                 const auto email=request["account"].toString();const auto secret=request["password"].toString().toLatin1();
@@ -237,4 +245,7 @@ private:
         });
     }
 };
-int main(int argc,char **argv){QCoreApplication app(argc,argv);if(argc==3&&QString::fromLocal8Bit(argv[1])=="--check-profile"){const auto path=QString::fromLocal8Bit(argv[2]);if(!QFile::exists(path))return 2;const auto check=loadProfile(path);const bool valid=std::holds_alternative<HouseholdProfile>(check);QTextStream(stdout)<<"Profile valid: "<<valid<<"\n";return valid?0:2;}const auto parsed=loadProfile("/var/lib/porthole-calendar/profile.json");if(const auto *profile=std::get_if<HouseholdProfile>(&parsed))setHouseholdProfile(*profile);else return 2;auto *user=getpwnam("porthole");if(!user)return 1;if(argc==2&&QString::fromLocal8Bit(argv[1])=="--self-check"){QTextStream(stdout)<<"Configured profile valid: 1\n";return 0;}CalendarService service(user->pw_uid);return app.exec();}
+int main(int argc,char **argv){QCoreApplication app(argc,argv);if(argc==3&&QString::fromLocal8Bit(argv[1])=="--check-profile"){const auto path=QString::fromLocal8Bit(argv[2]);if(!QFile::exists(path))return 2;const auto check=loadProfile(path);const bool valid=std::holds_alternative<HouseholdProfile>(check);QTextStream(stdout)<<"Profile valid: "<<valid<<"\n";return valid?0:2;}const auto parsed=loadProfile("/var/lib/porthole-calendar/profile.json");if(const auto *profile=std::get_if<HouseholdProfile>(&parsed))setHouseholdProfile(*profile);else return 2;auto *user=getpwnam("porthole");if(!user)return 1;if(argc==2&&QString::fromLocal8Bit(argv[1])=="--self-check"){QTextStream(stdout)<<"Configured profile valid: 1\n";return 0;}CalendarService service(user->pw_uid);
+    writeGraphicsDiagnostic(GraphicsMetric::BackendProtocol,2);
+    QTimer diagnosticsHeartbeat;QObject::connect(&diagnosticsHeartbeat,&QTimer::timeout,&app,[]{writeGraphicsDiagnostic(GraphicsMetric::BackendProtocol,2);});diagnosticsHeartbeat.start(15*60*1000);
+    return app.exec();}

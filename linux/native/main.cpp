@@ -135,7 +135,7 @@ public:
         if(auto *body=briefing->findChild<QLabel*>("briefingText"))QTextStream(stdout)<<"Briefing preview: "<<briefing->width()<<"x"<<briefing->height()<<", body "<<body->width()<<"x"<<body->height()<<", font "<<body->font().pixelSize()<<"px\n";
         return true;
     }
-    explicit Dashboard(bool sample):graphics(!sample,this) {
+    explicit Dashboard(bool sample):graphics(!sample,this,[this](GraphicsMetric metric,int value){caldav.graphicsDiagnostic(metric,value);}) {
         setWindowTitle("Porthole");setMinimumSize(640,600);
         caption->setProperty("tone","secondary");feels->setProperty("tone","secondary");sunTimes->setProperty("tone","secondary");
         auto *root=new QVBoxLayout(this);root->setContentsMargins(32,30,32,18);root->setSpacing(20);
