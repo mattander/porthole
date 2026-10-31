@@ -24,29 +24,6 @@ void graphicsMessage(QtMsgType type,const QMessageLogContext &context,const QStr
     if(const auto handler=chainedHandler.load(std::memory_order_relaxed))handler(type,context,message);
     else {const auto formatted=qFormatLogMessage(type,context,message).toLocal8Bit();std::fprintf(stderr,"%s\n",formatted.constData());}
 }
-int wireCode(GraphicsMetric metric){
-    switch(metric){
-    case GraphicsMetric::Protocol:return 560;
-    case GraphicsMetric::Platform:return 561;
-    case GraphicsMetric::QtMinor:return 562;
-    case GraphicsMetric::ScreenWidth10px:return 563;
-    case GraphicsMetric::ScreenHeight10px:return 564;
-    case GraphicsMetric::RefreshHz:return 565;
-    case GraphicsMetric::ScrollState:return 566;
-    case GraphicsMetric::ScrollDuration10ms:return 567;
-    case GraphicsMetric::ScrollMoves:return 568;
-    case GraphicsMetric::ViewportPaints:return 569;
-    case GraphicsMetric::UiGapMs:return 570;
-    case GraphicsMetric::OvershootPx:return 571;
-    case GraphicsMetric::QtWarning:return 572;
-    case GraphicsMetric::KernelAccess:return 573;
-    case GraphicsMetric::KernelFaultMask:return 574;
-    case GraphicsMetric::KernelFaultCount:return 575;
-    case GraphicsMetric::GpuDriver:return 576;
-    case GraphicsMetric::AliveSeconds:return 577;
-    }
-    Q_UNREACHABLE();
-}
 int stateCode(QScroller::State state){
     switch(state){
     case QScroller::Inactive:return 0;
@@ -56,10 +33,6 @@ int stateCode(QScroller::State state){
     }
     Q_UNREACHABLE();
 }
-}
-std::optional<QJsonObject> graphicsDiagnosticRecord(GraphicsMetric metric,int value){
-    if(value<0||value>999)return std::nullopt;
-    return QJsonObject{{"v",1},{"event","calendar_ready"},{"http",wireCode(metric)},{"network",value}};
 }
 std::optional<int> graphicsWarningCode(const QString &category,const QString &message){
     const auto name=category.toLower(),text=message.toLower();
@@ -88,10 +61,7 @@ int graphicsKernelFaultMask(const QByteArray &message){
 }
 GraphicsDiagnostics::GraphicsDiagnostics(bool active,QObject *parent,Sink output):QObject(parent),enabled(active),sink(std::move(output)){
     if(!enabled)return;
-    if(!sink)sink=[](GraphicsMetric metric,int value){
-        if(const auto record=graphicsDiagnosticRecord(metric,value))
-            qInfo().noquote()<<"PORTHOLE_DIAGNOSTIC"<<QJsonDocument(*record).toJson(QJsonDocument::Compact);
-    };
+    if(!sink)sink=writeGraphicsDiagnostic;
     for(auto &count:warnings)count.store(0,std::memory_order_relaxed);
     previous=qInstallMessageHandler(graphicsMessage);chainedHandler=previous;
     clock.start();

@@ -115,7 +115,7 @@ Wi-Fi retrieval, revocation, firewall closure and app state preservation.
 App releases with graphics protocol 1 add telemetry without changing the enrolled
 TLS server, firewall, privileges or request. Use the current `diagnostics.py`
 reader from this repository. It separates a `graphics` list from ordinary `events`.
-A startup `protocol=1` record confirms the new dashboard actually ran; publication
+A relayed startup `protocol=1` record confirms the new dashboard actually ran; publication
 alone does not confirm installation. A protocol heartbeat repeats every 15 minutes. An `alive_seconds` record after
 one minute confirms the instrumented process stayed up beyond the updater startup
 check; later heartbeats repeat its bounded uptime.
@@ -142,8 +142,8 @@ bill of health. This app release does not grant journal access. Neither a silent
 Qt log nor normal UI timing excludes a compositor or panel scanout problem.
 
 Compatibility: the installed schema-1 exporter accepts only its original fixed
-events and numeric ranges. The kiosk unit reserves `calendar_ready` with `http`
-codes 560–577 and a `network` value 0–999 as graphics protocol 1 packets. These
+events and numeric ranges. The kiosk and calendar units reserve `calendar_ready` with `http`
+codes 560–578 and a `network` value 0–999 as graphics protocol 1 packets. These
 fields are transport slots in that reserved namespace, not HTTP/network results.
 The calendar service's ordinary `calendar_ready` records remain unchanged. The
 current Mac reader decodes the reserved packets; older readers show their raw
@@ -153,3 +153,19 @@ unchanged, and its 2,000-record/seven-day cap and 30-second cache still apply.
 Tests pass real packet fixtures through the unmodified exporter and check the
 native/reader mapping, strict numeric bounds, category-only warning export,
 scroll paint activity, an induced UI stall, overshoot and disabled demo collection.
+
+### Backend relay and installation evidence
+
+Graphics telemetry now uses the existing UID-restricted local calendar socket.
+The backend validates the exact three-field request, known metric code and integer
+value 0–999 before logging it through the same journal route used by calendar
+health records. It permits at most 240 relayed packets per minute. Telemetry failures
+do not change calendar status or trigger extra polling. No remote diagnostic
+commands, new listener, service permission or firewall change is added.
+
+The backend separately logs `backend_graphics_protocol=2` at startup and every
+15 minutes. This distinguishes an updated backend from a GUI logging/export gap.
+The dashboard's relayed `alive_seconds` confirms the new GUI is also running.
+Packets include a fixed source-unit label in the Mac reader. Code 578 is reserved
+for the backend marker and cannot be supplied through the GUI relay. Ordinary
+calendar-ready records keep code zero and remain in `events`.

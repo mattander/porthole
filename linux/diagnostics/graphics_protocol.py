@@ -1,8 +1,8 @@
 """Decode bounded graphics telemetry carried by the installed schema-1 exporter.
 
-The old exporter is intentionally unchanged. Its allowed calendar_ready event is
-reserved, in the kiosk unit only and with codes 560-577, as a numeric transport.
-Normal calendar_ready records come from the calendar unit and keep their meaning.
+The old exporter is intentionally unchanged. Its calendar_ready event reserves
+codes 560-578 as a numeric transport in the app and calendar units. Ordinary
+calendar_ready records use code zero and retain their meaning.
 """
 METRICS = {
     560: 'protocol', 561: 'platform', 562: 'qt_minor',
@@ -10,7 +10,7 @@ METRICS = {
     566: 'scroll_state', 567: 'scroll_duration_10ms', 568: 'scroll_moves',
     569: 'scroll_area_paints', 570: 'ui_gap_ms', 571: 'overshoot_px',
     572: 'qt_warning', 573: 'kernel_access', 574: 'kernel_fault_mask',
-    575: 'kernel_fault_count', 576: 'gpu_driver', 577: 'alive_seconds',
+    575: 'kernel_fault_count', 576: 'gpu_driver', 577: 'alive_seconds', 578: 'backend_graphics_protocol',
 }
 PLATFORMS = {0: 'other', 1: 'wayland', 2: 'xcb', 3: 'offscreen'}
 STATES = {0: 'inactive', 1: 'pressed', 2: 'dragging', 3: 'scrolling'}
@@ -29,13 +29,16 @@ def decode_graphics(value):
             events.append(entry)
             continue
         code, number = entry.get('http'), entry.get('network')
-        if (entry.get('service') != 'porthole-kiosk.service' or entry.get('event') != 'calendar_ready'
+        if (entry.get('service') not in ('porthole-kiosk.service', 'porthole-calendar.service') or entry.get('event') != 'calendar_ready'
                 or type(code) is not int or code not in METRICS or type(number) is not int
                 or not 0 <= number <= 999 or not isinstance(entry.get('time'), str)):
             events.append(entry)
             continue
+        if code == 578 and entry.get('service') != 'porthole-calendar.service':
+            events.append(entry)
+            continue
         # Copy only explicit fields; never propagate unrelated raw response keys.
-        result = {'time': entry['time'], 'metric': METRICS[code], 'value': number}
+        result = {'time': entry['time'], 'metric': METRICS[code], 'value': number, 'source': entry['service']}
         names = {561: PLATFORMS, 566: STATES, 573: KERNEL_ACCESS, 576: GPU_DRIVERS}
         if code in names:
             result['meaning'] = names[code].get(number, 'unknown')

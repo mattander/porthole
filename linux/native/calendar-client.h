@@ -1,5 +1,6 @@
 #pragma once
 #include "data.h"
+#include "diagnostic-log.h"
 #include <QObject>
 #include <QJsonObject>
 #include <functional>
@@ -19,6 +20,7 @@ public:
     QString icloudStatus()const{return appleStatus;}
     QList<Calendar> googleCalendars()const;
     void requestStatus();
+    void graphicsDiagnostic(GraphicsMetric metric,int value);
     void briefingWeather(QJsonObject weather);
     void briefingSettings(bool enabled,QString priorities,int budgetCents);
     void refreshBriefing();

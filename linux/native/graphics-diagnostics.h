@@ -1,5 +1,6 @@
 #pragma once
 #include <QElapsedTimer>
+#include "diagnostic-log.h"
 #include <QJsonObject>
 #include <QHash>
 #include <QPoint>
@@ -11,14 +12,6 @@
 #include <optional>
 
 class QScrollArea;
-enum class GraphicsMetric {
-    Protocol, Platform, QtMinor, ScreenWidth10px, ScreenHeight10px, RefreshHz,
-    ScrollState, ScrollDuration10ms, ScrollMoves, ViewportPaints, UiGapMs,
-    OvershootPx, QtWarning, KernelAccess, KernelFaultMask, KernelFaultCount, GpuDriver, AliveSeconds
-};
-// Reserved numeric packets survive the already-enrolled, fixed Python exporter.
-// No free text, paths, screen pixels or household data enter this transport.
-std::optional<QJsonObject> graphicsDiagnosticRecord(GraphicsMetric metric,int value);
 std::optional<int> graphicsWarningCode(const QString &category,const QString &message);
 int graphicsKernelFaultMask(const QByteArray &message);
 

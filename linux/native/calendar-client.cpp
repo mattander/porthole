@@ -113,3 +113,16 @@ void CalendarClient::saveProfile(QJsonObject profile){send({{"type","profileSett
 QList<Calendar> CalendarClient::googleCalendars()const{return calendars(google["available"].toArray());}
 void CalendarClient::selectGoogleCalendars(const QList<Calendar> &items){QJsonArray urls;for(const auto &c:items)urls.append(c.url.toString());send({{"type","googleSelect"},{"urls",urls}});}
 void CalendarClient::forgetGoogleAccount(){send({{"type","googleForget"}});}
+
+void CalendarClient::graphicsDiagnostic(GraphicsMetric metric,int value){
+    if(preview)return;
+    const auto request=graphicsDiagnosticRequest(metric,value);if(!request)return;
+    auto *socket=new QLocalSocket(this);socket->setReadBufferSize(1024);auto *timer=new QTimer(socket);timer->setSingleShot(true);timer->start(2000);
+    // Telemetry is best effort and never changes the calendar status or triggers polling.
+    auto finish=[socket]{socket->abort();socket->deleteLater();};
+    connect(timer,&QTimer::timeout,socket,finish);
+    connect(socket,&QLocalSocket::errorOccurred,socket,[finish](auto){finish();});
+    connect(socket,&QLocalSocket::disconnected,socket,&QObject::deleteLater);
+    connect(socket,&QLocalSocket::connected,socket,[socket,request]{socket->write(QJsonDocument(*request).toJson(QJsonDocument::Compact)+'\n');});
+    socket->connectToServer(endpoint);
+}
