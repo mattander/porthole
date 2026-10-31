@@ -12,6 +12,9 @@ Apple documents how to [create a dedicated app-specific password](https://suppor
 
 ## Build and test
 
+Libical 4.0 or newer is required for the holiday recurrence interface. Build
+against the installed frame runtime; the verified package baseline is 4.0.6.
+
 The interface uses bundled Poppins Regular, SemiBold and Bold fonts, with Noto
 Color Emoji for emoji and joined sequences. Qt 6.9 or later is required for the
 application emoji-font selection and COLRv1 rendering. Qt resources embed the
@@ -209,6 +212,40 @@ briefing waits for fresh data from every configured source. See
 [Google setup](../google/README.md) for the once-only Mac browser sign-in.
 
 ## Calendar colours and briefing sources
+
+Canadian holidays and observances use Apple's separate
+[Canadian Holidays feed](https://calendars.icloud.com/holidays/ca_en.ics/), so they
+also appear when the holiday subscription on a phone is absent from the selected
+iCloud/Google account calendars. The configured timezone enables this source for
+Canada. An explicit province name or code after the last comma in the weather
+location label selects regional entries, for example `Example City, Ontario` or
+`Example City, ON`. With no recognized province, only entries without a province
+annotation appear. The published empty UTC profile enables no holiday source.
+
+The backend expands bounded annual recurrences into local all-day events,
+including observances such as Halloween. Agenda rows, month markers, event
+details and the briefing share these dates. An existing personal all-day event
+with the same name and dates takes precedence over its public-calendar duplicate.
+Holiday/observance entries use the activities priority unless an explicit supplied
+fact establishes lunch impact; a holiday entry alone does not establish a school
+or workplace closure.
+
+The credential-free HTTPS fetch checks daily and retains its last valid public
+calendar in `/var/lib/porthole-calendar/holidays.json`. Failed fetches retry no
+sooner than five minutes later and leave personal calendar refreshes working.
+The Data/calendar status includes holiday-source availability. Malformed,
+oversized, timed or unsupported recurring source data is rejected. The source's
+unused DTSTAMP metadata is omitted before validation because its published
+date-only form is not a valid iCalendar timestamp. Scheduling dates remain strict.
+Published date coverage bounds available holidays; it is not an offline perpetual
+holiday calculator. `--demo --preview-holidays` shows a fictional all-day example.
+
+`porthole-holiday-tests` covers regional selection, annual and moving dates,
+exclusive end dates, recurrence exceptions, duplicate handling, cache recovery,
+failed/redirected requests and disabled regions. Optional
+`PORTHOLE_HOLIDAY_FIXTURE=/path/to/decoded.ics` and
+`PORTHOLE_HOLIDAY_NETWORK=1` enable tests against a downloaded source and its live
+public HTTPS endpoint.
 
 Agenda bars use the selected calendar's source colour, with its name kept visible.
 iCloud colours come from the Apple CalDAV `calendar-color` property; Google uses

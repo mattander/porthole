@@ -80,7 +80,7 @@ void CalendarClient::receive(const QJsonObject &reply){
     }
     if(instance!=reply["instance"].toString()){instance=reply["instance"].toString();eventRevision=selectionRevision=-1;if(!cachedBriefingWeather.isEmpty())QTimer::singleShot(0,this,[this]{briefingWeather(cachedBriefingWeather);});if(requestedMonth.isValid())QTimer::singleShot(0,this,[this]{fetch({},requestedMonth);});}
     const auto summary=reply["briefing"].toObject();if(summary!=lastBriefing){lastBriefing=summary;emit briefingChanged(summary);}
-    google=reply["google"].toObject();appleStatus=reply["icloudStatus"].toString(reply["status"].toString());
+    google=reply["google"].toObject();appleStatus=reply["icloudStatus"].toString(reply["status"].toString());publicHolidayStatus=reply["holidayStatus"].toString();
     authenticated=reply["icloudAuthenticated"].toBool(reply["authenticated"].toBool());hasSaved=reply["remembered"].toBool();account=reply["account"].toString();
     checked=QDateTime::fromString(reply["lastChecked"].toString(),Qt::ISODate);
     calendarIssue=reply["calendarIssue"].toString();emit healthChanged(checked,calendarIssue,authenticated||google["authenticated"].toBool());

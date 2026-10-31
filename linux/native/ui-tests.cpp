@@ -26,6 +26,12 @@ class SettingsTests:public QObject {
     Q_OBJECT
 private slots:
     void initTestCase(){QVERIFY(configureInterfaceTypography());QCOMPARE(QFontInfo(QApplication::font()).family(),QString("Poppins"));}
+    void publicHolidayAvailabilityAppearsWithDataUpdates(){
+        QWidget parent;WifiController wifi(nullptr,true);SettingsPane pane(&wifi,{},&parent);
+        pane.updateTimes({},{},{},false,false,"Canadian holidays (ON) · saved dates, refresh unavailable");
+        auto *updated=pane.findChild<QLabel*>("dataUpdated");QVERIFY(updated);QVERIFY(updated->text().contains("saved dates, refresh unavailable"));
+        pane.updateTimes({},{},{});QVERIFY(!updated->text().contains("Canadian holidays"));
+    }
     void checkboxesToggleFromTheirLabelAndEmptyRowSpaceExactlyOnce(){
         TouchCheckBox box("A calendar or setting");box.resize(620,56);box.show();QTest::qWait(10);QSignalSpy changes(&box,&QCheckBox::toggled);
         for(const auto point:{QPoint(12,28),QPoint(120,28),QPoint(610,28)}){

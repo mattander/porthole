@@ -160,7 +160,7 @@ public:
             selectedDate=calendar->selectedDate();renderAgenda();
         });
         connect(calendar,&QCalendarWidget::currentPageChanged,this,[this](int y,int m) {
-            month=QDate(y,m,1);if(!demo&&!selected.isEmpty()){calendarStatus="Refreshing calendar…";caldav.fetch(selected,month);renderAgenda();}
+            month=QDate(y,m,1);if(!demo){calendarStatus="Refreshing calendar…";caldav.fetch(selected,month);renderAgenda();}
         });
         board->setContentsMargins(0,0,0,0);board->setSpacing(48);
         board->addWidget(conditions,55);board->addWidget(calendar,55);board->addWidget(agenda,45);
@@ -296,7 +296,7 @@ private:
         QStringList names;for(const auto &calendar:selected)if(!isGoogleCalendarUrl(calendar.url))names<<calendar.name;
         settings->updateGoogle(caldav.googleState());settings->updateProfile(householdProfile().json());settings->updateBriefing(latestBriefing);
         settings->updateDiagnostics(diagnosticState());
-        settings->updateTimes(lastCalendar,lastWeather,lastSummary,weatherStale,demo);
+        settings->updateTimes(lastCalendar,lastWeather,lastSummary,weatherStale,demo,demo?"Sample holiday calendar":caldav.holidayStatus());
         settings->updateSoftware(updates.state());
         settings->updateAppearance(appearance,appearanceDescription());
         settings->updateBrightness(brightnessState,brightnessMessage);
@@ -425,7 +425,7 @@ private:
         view=next;if(view<2)lastDayView=view;footer->setView(view);dayTabs->setView(view);
         conditions->setVisible(view!=2);calendar->setVisible(view==2);
         selectedDate=view==2?calendar->selectedDate():now().date().addDays(view);
-        if(!demo&&!selected.isEmpty())caldav.fetch(selected,view==2?month:selectedDate);
+        if(!demo)caldav.fetch(selected,view==2?month:selectedDate);
         renderAgenda();
     }
     void renderAgenda() {
@@ -475,6 +475,7 @@ private:
             events[0].title="Library visit 📚 🇨🇦";events[1].title="Dinner together 🥘 👨‍👩‍👧‍👦";
             briefing->updateBriefing({{"enabled",true},{"text","Sample: Café plans ☕ and soccer ⚽. Family dinner 🥘 👨‍👩‍👧‍👦, a thumbs-up 👍🏽, a health visit 👩🏽‍⚕️, and a Canadian flag 🇨🇦."}});
         }
+        if(qApp->arguments().contains("--preview-holidays"))events.prepend(Event{"sample-holiday","Sample holiday","","Canadian holidays",QDateTime(today,QTime(0,0),configuredZone()),QDateTime(today.addDays(1),QTime(0,0),configuredZone()),true,"sample-holidays","#6B8E7D","Fictional holiday preview."});
         const auto todayString=today.toString(Qt::ISODate);
         sunSchedule=SunThemeSchedule::fromWeather({{"time",QJsonArray{todayString}}, {"sunrise",QJsonArray{todayString+"T07:35"}}, {"sunset",QJsonArray{todayString+"T18:35"}}},configuredZone());
         if(qApp->arguments().contains("--preview-follow-sun"))appearance=AppearanceMode::SunSchedule;
@@ -505,8 +506,7 @@ private:
     }
     void refreshCalendar(){
         if(demo)return;
-        if(!selected.isEmpty())caldav.fetch(selected,view==2?month:now().date().addDays(view));
-        else caldav.requestStatus();
+        caldav.fetch(selected,view==2?month:now().date().addDays(view));
     }
     void refreshWeather(){
         if(demo)return;

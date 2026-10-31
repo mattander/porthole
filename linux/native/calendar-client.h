@@ -18,6 +18,7 @@ public:
     void forgetGoogleAccount();
     QJsonObject googleState()const{return google;}
     QString icloudStatus()const{return appleStatus;}
+    QString holidayStatus()const{return publicHolidayStatus;}
     QList<Calendar> googleCalendars()const;
     void requestStatus();
     void graphicsDiagnostic(GraphicsMetric metric,int value);
@@ -46,7 +47,7 @@ private:
     bool preview=false,polling=false,authenticated=false,hasSaved=false;
     const QString endpoint;
     qint64 eventRevision=-1,selectionRevision=-1;
-    QString account,instance,lastStatus,appleStatus;
+    QString account,instance,lastStatus,appleStatus,publicHolidayStatus;
     QList<Calendar> available;
     QJsonObject lastBriefing,cachedBriefingWeather,lastProfile,google;
     QDate requestedMonth;

@@ -223,6 +223,7 @@ QJsonObject briefingRequest(const QJsonObject &context,const QString &priorities
         "CATEGORY PRIORITY: Within each day, use this exact order: lunch impact; the household child's appointments; other appointments; activities. "
         "Identify the child from household_context. Lunch impact means supplied facts that affect lunch arrangements, including a provided school meal or an explicit change to a packed lunch. "
         "Do not let a lower-ranked category displace a higher-ranked fact for the same day. Include supplied clock times for appointments and activities. "
+        "Holiday and observance calendar entries belong with activities unless an explicitly supplied fact establishes lunch impact. An observance alone does not establish school or workplace closure. "
         "This date and category order is the same in every morning, midday and evening period, on weekdays and weekends. "
         "Omit lower-priority details instead of squeezing in the whole calendar. "
         "Use household context and saved family priorities to interpret people and arrangements, never to override this date and category order. Use ONLY supplied facts. "

@@ -61,6 +61,12 @@ are not presented as morning temperatures. Briefings use short direct sentences,
 without semicolons or generic preparation advice. The response boundary converts
 semicolon chains into sentences and rechecks the physical character limit.
 
+The backend also supplies relevant Canadian holiday/observance entries from the
+separate public holiday calendar described in the
+[native calendar documentation](../native/README.md#calendar-colours-and-briefing-sources).
+They follow the activities priority unless an explicitly supplied fact affects
+lunch. The model must not infer school/work closures from an observance alone.
+
 API data is not used for training by default. `store: false` disables stored
 response application state, but standard abuse monitoring and applicable prompt
 caching retention can still apply. See [OpenAI data controls](https://developers.openai.com/api/docs/guides/your-data).
