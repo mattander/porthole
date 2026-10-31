@@ -214,8 +214,8 @@ void SettingsPane::updateBriefing(const QJsonObject &state){
     }
 }
 
-void SettingsPane::updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample){
-    dataUpdated->setText(QString("%1Calendars · %2\nWeather · %3%4\nBriefing · %5").arg(sample?"Sample data · fictional\n":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary)));
+void SettingsPane::updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool stale,bool sample,const QString &holidayStatus){
+    dataUpdated->setText(QString("%1Calendars · %2\nWeather · %3%4\nBriefing · %5").arg(sample?"Sample data · fictional\n":"",checked(calendar),checked(weather),stale?" (stale)":"",checked(summary))+(holidayStatus.isEmpty()?QString():"\n"+holidayStatus));
 }
 void SettingsPane::updateAppearance(AppearanceMode mode,const QString &status){
     manualMode->setChecked(mode==AppearanceMode::Manual);ambientMode->setChecked(mode==AppearanceMode::AmbientLight);sunMode->setChecked(mode==AppearanceMode::SunSchedule);

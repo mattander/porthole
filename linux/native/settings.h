@@ -37,7 +37,7 @@ public:
     void updateSoftware(const std::optional<SoftwareUpdate> &state);
     void updateAppearance(AppearanceMode mode,const QString &status);
     void updateBrightness(const std::optional<BacklightState> &state,const QString &status={});
-    void updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool weatherStale=false,bool sample=false);
+    void updateTimes(QDateTime calendar,QDateTime weather,QDateTime summary,bool weatherStale=false,bool sample=false,const QString &holidayStatus={});
 private:
     QLabel *googleStatus;QPushButton *googleChoose,*googleForget;
     QLabel *calendarStatus,*weatherStatus,*calendarNames,*modeStatus;
