@@ -40,16 +40,16 @@ codes and rounded high/low temperatures. They omit account identifiers, event
 UIDs, descriptions, attendees and locations. At most 60 upcoming events and a
 bounded input size are included; omitted events are explicitly counted.
 
-Three prompts use the configured local time: morning at 6 AM, midday at noon, and
-evening at 4 PM. Every period covers today's remaining medical appointments,
-vaccinations and other time-sensitive commitments, with supplied clock times,
-before routine school/lunch facts, later plans or weather. School priorities must
-not crowd out an adult's appointment. Morning then emphasizes household-specific
-special lunch days and school events; weekday midday uses remaining space to look
-ahead three or four days and increasingly toward weekend plans. Weekend midday focuses on remaining plans and
-tomorrow, with Monday preparation on Sunday. Evening emphasizes tonight and
-tomorrow's school/lunch facts, early starts, and weather. Important later events
-retain their actual weekday instead of being pulled into tomorrow. Household
+Generation periods use the configured local time: morning at 6 AM, midday at
+noon, and evening at 4 PM. All periods use the same priorities on weekdays and
+weekends: relevant remaining facts today first, then tomorrow. Only if neither
+day has relevant facts does the briefing look two or three days ahead, nearest
+day first. Within each day, the exact order is lunch impact, the household child's
+appointments, other appointments, then activities. The child is identified from
+the private household context. Supplied clock times accompany appointments and
+activities. Weather follows these calendar priorities only if space remains and
+it materially affects a plan. Saved context and preferences cannot change this
+order. Important later events retain their actual weekday. Household
 roles and meal arrangements come from private configuration. Adults handle their
 own preparation, and a supplied school meal does not imply packing that meal.
 Preparation items must be explicitly supplied. Extra saved family

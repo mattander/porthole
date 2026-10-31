@@ -105,8 +105,12 @@ rainfall rates remain available to assistive technology.
 The AI briefing sits below the weather in a bounded area. It has a backend
 320-character generation limit (usually 220–300 characters, up to three sentences)
 and a separate pixel-fit renderer for both orientations. On busy days it selects
-three to five useful facts, putting today's remaining appointments and time-sensitive commitments ahead
-of routine school details, later plans and weather. Previously cached briefings
+three to five useful facts: today first, then tomorrow, with days two and three
+used only when neither day has relevant facts. Within each day it prioritizes
+lunch impact, the household child's appointments, other appointments, then
+activities. Private household context identifies the child; weather comes after
+these calendar facts. The order stays the same in every generation period.
+Previously cached briefings
 up to 400 characters remain readable without discarding their source mappings.
 A small key directly beneath tinted phrases pairs calendar colours with readable
 names, once per referenced calendar. It hides for plain-text briefings and neutral
@@ -147,8 +151,8 @@ budget, shared with the calendar colour key. It can shrink to 174 pixels when
 weather needs more room. The full-height weather column makes room for larger
 section gaps while retaining text sizes and the existing readability floor. It fits
 the complete bounded response by adapting its
-font rather than appending a display ellipsis. Morning/noon/4 PM prompts follow
-weekday/weekend family priorities, with local half-hour change checks from
+font rather than appending a display ellipsis. Morning/noon/4 PM generation uses
+the same household priorities, with local half-hour change checks from
 6 AM through 9 PM, private cache recovery, and a 31-attempt daily cap. See
 [AI setup and scheduling](../ai/README.md). Today's weather details also include
 sunrise and sunset in the configured local time; forecast tiles remain compact.

@@ -60,20 +60,24 @@ private slots:
     }
 
     void cleanup(){fixtureTime=QDateTime(QDate(2026,10,14),QTime(9,0),QTimeZone("America/New_York"));}
-    void timeOfDayAndWeekendPrompts(){
+    void consistentPrioritiesAcrossPeriodsAndWeekends(){
+        QString sharedInstructions;
         for(const auto hour:{6,12,16})for(const auto date:{QDate(2026,10,14),QDate(2026,10,18)}){
             const QDateTime time(date,QTime(hour,0),QTimeZone("America/New_York"));const auto context=briefingContext({}, {},time);
             QCOMPARE(context["weekend"].toBool(),date.dayOfWeek()>=6);
             const auto prompt=briefingRequest(context,"Prioritize school lunches");const auto instructions=prompt["instructions"].toString();
             QVERIFY(instructions.contains("household context"));QVERIFY(instructions.contains("lunch"));QVERIFY(instructions.contains("weekday",Qt::CaseInsensitive));QVERIFY(instructions.contains("weekend",Qt::CaseInsensitive));
-            QVERIFY(instructions.contains(hour==6?"Morning:":hour==12?"Midday:":"Evening, starting at 4pm:"));
+            QCOMPARE(context["day_period"].toString(),hour==6?QString("morning"):hour==12?QString("midday"):QString("evening"));
+            if(sharedInstructions.isEmpty())sharedInstructions=instructions;else QCOMPARE(instructions,sharedInstructions);
             const auto segments=prompt["text"].toObject()["format"].toObject()["schema"].toObject()["properties"].toObject()["segments"].toObject();
             QCOMPARE(segments["maxItems"].toInt(),BriefingSegmentLimit);QCOMPARE(segments["items"].toObject()["properties"].toObject()["event_refs"].toObject()["maxItems"].toInt(),BriefingGenerationReferencesPerSegmentLimit);
             QCOMPARE(segments["items"].toObject()["properties"].toObject()["text"].toObject()["maxLength"].toInt(),BriefingGenerationCharacterLimit);
             QVERIFY(instructions.contains("220–300"));QVERIFY(instructions.contains(QString("never exceed %1 characters").arg(BriefingGenerationCharacterLimit)));
             QVERIFY(instructions.contains("up to 3 short, natural sentences"));QVERIFY(instructions.contains("person's name"));QVERIFY(instructions.contains("Split different events"));
-            QVERIFY(instructions.contains("APPOINTMENTS FIRST"));QVERIFY(instructions.contains("medical appointments, vaccinations"));
-            QVERIFY(instructions.contains("Do not let school/lunch priorities crowd out an adult's appointment"));
+            QVERIFY(instructions.contains("lunch impact; the household child's appointments; other appointments; activities"));
+            QVERIFY(instructions.contains("today first (days_from_today=0), then tomorrow (1)"));
+            QVERIFY(instructions.contains("ONLY if neither today nor tomorrow has relevant facts"));
+            QVERIFY(!instructions.contains("vaccin",Qt::CaseInsensitive));
             QVERIFY(instructions.contains("HIGHLIGHT ONLY THE SUBJECT"));QVERIFY(instructions.contains("normal spaces"));
             QVERIFY(prompt["input"].toString().contains("Prioritize school lunches"));
         }
