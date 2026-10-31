@@ -19,6 +19,7 @@ import uuid
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'google'))
 from diagnostics_common import MAX_RESPONSE, PORT, REQUEST, certificate_id, tls_context
+from graphics_protocol import decode_graphics
 from usb_transport import find_frame, send, wait_marker
 
 DEFAULT = Path.home() / '.config' / 'porthole' / 'diagnostics'
@@ -98,7 +99,7 @@ def fetch(host, certificate, key, server_certificate, port=PORT):
         raise RuntimeError('Invalid diagnostic response')
     if value.get('error'):
         raise RuntimeError('The frame could not collect its diagnostic journal; USB maintenance is required.')
-    return value
+    return decode_graphics(value)
 
 
 def main():

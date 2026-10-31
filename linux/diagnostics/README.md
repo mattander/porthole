@@ -1,7 +1,7 @@
 # Private Wi-Fi diagnostics
 
-The optional reader returns only fixed diagnostic event codes, HTTP/Qt error
-numbers, timestamps and the state of the two app services. It never exports raw
+The optional reader returns fixed diagnostic event codes, HTTP/Qt error
+numbers, graphics telemetry, timestamps and the state of the two app services. It never exports raw
 journal messages, credentials, account identifiers, Wi-Fi names, calendar/event
 contents, generated briefing text, device serials or arbitrary files. It cannot
 run commands, change settings, update software or enroll another computer.
@@ -109,3 +109,47 @@ server identity and rejection of command/file requests. Native tests cover
 never-finishing discovery/fetch requests, operation deadlines, cancellation and
 recovery on the same connector. Hardware checks additionally verify enrollment,
 Wi-Fi retrieval, revocation, firewall closure and app state preservation.
+
+## Graphics evidence through the existing Wi-Fi reader
+
+App releases with graphics protocol 1 add telemetry without changing the enrolled
+TLS server, firewall, privileges or request. Use the current `diagnostics.py`
+reader from this repository. It separates a `graphics` list from ordinary `events`.
+A startup `protocol=1` record confirms the new dashboard actually ran; publication
+alone does not confirm installation. A protocol heartbeat repeats every 15 minutes. An `alive_seconds` record after
+one minute confirms the instrumented process stayed up beyond the updater startup
+check; later heartbeats repeat its bounded uptime.
+
+The dashboard reports its Qt minor version, Wayland/XCB/offscreen platform,
+rounded screen dimensions in 10-pixel units, refresh rate and a fixed GPU-driver
+classification. Each agenda scrolling window reports duration in 10 ms units,
+scrollbar moves, viewport/content paints, maximum sampled event-loop gap in milliseconds,
+and viewport/content overshoot in pixels. Windows flush after one quiet second
+or every five seconds while moving. Values saturate at 999 (meaning 999 or more).
+Qt graphics warnings become fixed timeout, buffer, EGL/OpenGL, backing-store,
+protocol, allocation or other categories with counts capped at 99 per five seconds.
+No warning text, pixels, event titles, credentials, input coordinates or paths are
+exported. Offline demos disable collection.
+
+Once per minute the dashboard asynchronously attempts a two-second, 64 KiB,
+100-record read of the last minute of kernel graphics messages using its existing
+permissions. Only fixed underflow/underrun, timeout, fault/hang, error/failure and
+reset bits and a count cross the export boundary. `kernel_access` distinguishes
+readable, permission denied, reader unavailable, failed/bounded out, and no
+matching records. No matching records is not proof of access to the kernel journal.
+A permission denial is useful evidence of the collection limit, not a clean GPU
+bill of health. This app release does not grant journal access. Neither a silent
+Qt log nor normal UI timing excludes a compositor or panel scanout problem.
+
+Compatibility: the installed schema-1 exporter accepts only its original fixed
+events and numeric ranges. The kiosk unit reserves `calendar_ready` with `http`
+codes 560–577 and a `network` value 0–999 as graphics protocol 1 packets. These
+fields are transport slots in that reserved namespace, not HTTP/network results.
+The calendar service's ordinary `calendar_ready` records remain unchanged. The
+current Mac reader decodes the reserved packets; older readers show their raw
+numeric form. Unknown packets stay in `events`. The server and its allowlist are
+unchanged, and its 2,000-record/seven-day cap and 30-second cache still apply.
+
+Tests pass real packet fixtures through the unmodified exporter and check the
+native/reader mapping, strict numeric bounds, category-only warning export,
+scroll paint activity, an induced UI stall, overshoot and disabled demo collection.

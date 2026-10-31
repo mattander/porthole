@@ -16,6 +16,7 @@ from diagnostics_common import EVENTS, REQUEST, certificate_id, tls_context
 from diagnostics_server import DiagnosticServer
 from export_diagnostics import record, collect
 from types import SimpleNamespace
+from graphics_protocol import decode_graphics, METRICS
 
 spec = importlib.util.spec_from_file_location('diagnostic_client', Path(__file__).with_name('diagnostics.py'))
 client = importlib.util.module_from_spec(spec);spec.loader.exec_module(client)
@@ -142,6 +143,42 @@ class DiagnosticTests(unittest.TestCase):
         server.collector = broken
         with self.assertRaisesRegex(RuntimeError, 'could not collect'):
             client.fetch('127.0.0.1', d / 'computer.pem', d / 'computer.key', (d / 'server.pem').read_text(), server.server_address[1])
+
+    def test_graphics_packets_cross_the_unchanged_exporter(self):
+        packets = []
+        for code in METRICS:
+            message = {'v': 1, 'event': 'calendar_ready', 'http': code, 'network': 1}
+            entry = {'_SYSTEMD_UNIT': 'porthole-kiosk.service', '__REALTIME_TIMESTAMP': '1792756800000000',
+                     'MESSAGE': 'PORTHOLE_DIAGNOSTIC ' + json.dumps(message), 'PRIVATE': 'secret'}
+            accepted = record(entry)
+            self.assertIsNotNone(accepted)
+            packets.append(accepted)
+        ordinary = {**packets[0], 'service': 'porthole-calendar.service', 'http': 0, 'network': 0}
+        value = decode_graphics({'schema': 1, 'events': packets + [ordinary], 'services': {}})
+        self.assertEqual(len(value['graphics']), len(METRICS))
+        self.assertEqual(value['events'], [ordinary])
+        self.assertNotIn('secret', json.dumps(value))
+        self.assertEqual(value['graphics'][1]['meaning'], 'wayland')
+        malformed = [{**packets[0], 'network': True}, {**packets[0], 'http': '560'},
+                     {**packets[0], 'network': 1000}, {**packets[0], 'service': 'foreign.service'}]
+        self.assertNotIn('graphics', decode_graphics({'events': malformed}))
+
+    def test_graphics_numeric_schema_matches_native_logging(self):
+        import re
+        source = Path(__file__).parent.parent / 'native' / 'graphics-diagnostics.cpp'
+        codes = re.findall(r'case GraphicsMetric::[A-Za-z0-9]+:return ([0-9]+);', source.read_text())
+        self.assertEqual(len(codes), len(set(codes)))
+        self.assertEqual({int(code) for code in codes}, set(METRICS))
+
+    def test_graphics_warning_and_kernel_decoding(self):
+        def packet(code, number):
+            return {'time': '2026-10-30T12:00:00Z', 'service': 'porthole-kiosk.service',
+                    'event': 'calendar_ready', 'http': code, 'network': number}
+        result = decode_graphics({'events': [packet(572, 203), packet(573, 2), packet(574, 5)]})['graphics']
+        self.assertEqual(result[0]['category'], 'buffer')
+        self.assertEqual(result[0]['count'], 3)
+        self.assertEqual(result[1]['meaning'], 'permission_denied')
+        self.assertEqual(result[2]['faults'], ['underflow_or_underrun', 'fault_or_hang'])
 
     def test_fixed_event_schema_matches_native_logging(self):
         import re
