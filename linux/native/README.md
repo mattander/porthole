@@ -296,3 +296,26 @@ its explicit reconnect requirement. Fixed journal records expose timeout,
 source freshness and briefing outcome categories without private payloads.
 See [Wi-Fi diagnostic access](../diagnostics/README.md) for USB-enrolled,
 certificate-authenticated retrieval and revocation.
+
+## Roux dinner menu
+
+An optional **Tonight's dinner** card opens the week's menu. It is hidden until
+Roux is configured; ordinary calendar/weather operation is unchanged. The feed
+contains meal dates and titles only, never full recipes, chat history or account
+credentials. `--demo --preview-roux` renders fictional sample dinners offline.
+
+The dedicated read-only token is created/revoked in Roux. Provision the frame's
+private `~/.config/porthole/roux.json` with mode `0600` using the approved secure
+transfer workflow, never shell arguments or Git. Its fields are `url` (the exact
+HTTPS `/v1/porthole/menu` endpoint) and `token` (the scoped token). The dashboard
+rejects symlinks and group/world-readable credential files, redirects, URL
+credentials/query strings, oversized/malformed replies and invalid timezones.
+TLS verification is never disabled. No AI or write API is called by Porthole.
+
+The menu refreshes automatically every 15 minutes, with a bounded 15-second request and
+manual refresh support. A private atomic cache is tied to the connection token;
+restarts and failures label it as cached, and it expires after seven days.
+Authentication rejection or changed/removed connection clears cached data.
+This optional client does not provision a cloud account or create a token.
+Live pairing, ARM/frame installation and cross-device updates must be verified
+separately before calling the integration connected.

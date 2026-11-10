@@ -13,6 +13,7 @@
 #include "dashboard-widgets.h"
 #include "event-widgets.h"
 #include "rain-forecast.h"
+#include "roux-menu.h"
 #include "diagnostics.h"
 #include "graphics-diagnostics.h"
 #include <QTabWidget>
@@ -114,6 +115,7 @@ class Dashboard : public QWidget {
     QLabel *temperature=label("—",70), *weather=label("Weather is not connected",18),*feels=label("",15),*sunTimes=label("",14);
     ForecastStrip *forecast=new ForecastStrip;
     RainStrip *rain=new RainStrip;
+    RouxMenuCard *roux=nullptr;
     AgendaDays *dayTabs=new AgendaDays;
     QLabel *heading=label("Today",40), *caption=label("",17);
     QWidget *conditions=new QWidget,*agenda=new QWidget,*eventList=new QWidget;
@@ -149,6 +151,8 @@ public:
         auto *right=new DashboardColumnLayout(agenda);right->setContentsMargins(0,8,0,0);right->setSpacing(14);right->addWidget(dayTabs);right->addWidget(heading);right->addWidget(caption);
         auto *scroll=new QScrollArea;scroll->setWidgetResizable(true);scroll->setFrameShape(QFrame::NoFrame);scroll->setWidget(eventList);
         QScroller::grabGesture(scroll->viewport(),QScroller::TouchGesture);graphics.watch(*scroll);right->addWidget(scroll,1);
+        roux=new RouxMenuCard(sample,this);right->addWidget(roux);
+        if(sample&&qApp->arguments().contains("--preview-roux")){const auto today=now().date();roux->setMenuForPreview({QDateTime::currentDateTimeUtc(),QString::fromUtf8(configuredZone().id()),{{today,"Roasted vegetable frittata"},{today.addDays(1),"Lemon chicken and potatoes"}}});}else if(sample)roux->hide();
         right->addWidget(footer,0,Qt::AlignRight);
         eventLayout->setContentsMargins(0,0,8,0);eventLayout->setSpacing(26);eventLayout->setAlignment(Qt::AlignTop);
         calendar->setFirstDayOfWeek(Qt::Sunday);calendar->setGridVisible(false);
@@ -413,6 +417,7 @@ private:
         markDates();renderAgenda();
     }
     void updateClock() {
+        if(roux)roux->updateDisplay();
         const auto time=now();if(sunDate.isValid()&&sunDate!=time.date()){sunDate={};sunTimes->setText("Sunrise / sunset updating…");if(!demo)refreshWeather();}
         clock->setTime(time.time());date->setText(time.toString("dddd, MMMM d"));rain->setTime(time);applyAutomaticTheme();
         if(view<2&&selectedDate!=time.date().addDays(view)){selectedDate=time.date().addDays(view);if(!demo)refreshCalendar();renderAgenda();}
@@ -501,6 +506,7 @@ private:
         if(google)caldav.selectGoogleCalendars(chosen);else caldav.selectCalendars(chosen);refreshData();
     }
     void refreshData() {
+        if(roux)roux->refresh();
         if(demo)return;
         refreshCalendar();refreshWeather();
     }
