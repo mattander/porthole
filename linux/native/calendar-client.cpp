@@ -100,6 +100,7 @@ void CalendarClient::requestStatus(){send({{"type","status"},{"eventsRevision",e
 void CalendarClient::connectAccount(const QString &account,const QByteArray &password,bool remember){selectionRevision=-1;send({{"type","login"},{"account",account},{"password",QString::fromLatin1(password)},{"remember",remember}});}
 void CalendarClient::selectCalendars(const QList<Calendar> &items){QJsonArray urls;for(const auto &c:items)urls.append(c.url.toString());send({{"type","select"},{"urls",urls}});}
 void CalendarClient::fetch(const QList<Calendar> &,QDate month){requestedMonth=QDate(month.year(),month.month(),1);send({{"type","fetch"},{"month",QDate(month.year(),month.month(),1).toString(Qt::ISODate)}});}
+void CalendarClient::retryIcloud(){send({{"type","retryIcloud"}});}
 void CalendarClient::forgetAccount(){send({{"type","forget"}});}
 
 void CalendarClient::briefingWeather(QJsonObject weather){cachedBriefingWeather=weather;send({{"type","briefingWeather"},{"weather",weather}});}

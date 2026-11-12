@@ -20,8 +20,8 @@ QString issueAction(IssueCode code){switch(code){
 case IssueCode::ConnectionLost:return "Choose or reconnect your network in Wi-Fi. Saved data remains available.";
 case IssueCode::WifiConnection:return "Check the network password, then try again.";
 case IssueCode::WifiScan:return "Try Refresh networks in Wi-Fi.";
-case IssueCode::CalendarSignIn:return "Check the affected account in Calendars. Replace the iCloud app-specific password or reconnect Google.";
-case IssueCode::CalendarUnavailable:return "Check Wi-Fi and the frame’s clock. Calendar checks retry every minute.";
+case IssueCode::CalendarSignIn:return "Check the affected account in Calendars. Check iCloud access and use Retry data after its cooldown, or replace the password. Reconnect Google if needed.";
+case IssueCode::CalendarUnavailable:return "Check Wi-Fi and the frame’s clock. Calendar checks retry automatically; rejected iCloud access uses bounded cooldowns.";
 case IssueCode::WeatherUnavailable:case IssueCode::InvalidForecast:return "Kept the last forecast. Weather retries every 15 minutes.";
 case IssueCode::SummaryKey:return "Replace the OpenAI key from your Mac over USB.";
 case IssueCode::SummaryUnavailable:return "Kept the last briefing. Check the connection and OpenAI credit balance. Request limits still apply.";

@@ -8,6 +8,11 @@ The app lists readable event calendars before fetching the calendars the owner c
 
 Weather comes from [Open-Meteo](https://open-meteo.com/en/docs) for the configured weather location, using a separate request manager without calendar credentials. The clock and calendar use the configured timezone. Network and clock setup are required before authenticating. The calendar service checks every minute, using sync-token/getctag markers to reuse unchanged calendar data where available and falling back to full time-range reports when markers are unsupported. Weather has its own 15-minute refresh timer. Manual refresh, restored connectivity and view/month changes trigger appropriate additional requests. The offline demo explicitly labels fictional events and weather; its clock uses the system's current time.
 
+iCloud access rejections use one bounded retry budget for agenda and briefing
+connections. Previously loaded events and the saved briefing remain available,
+with status explaining pending recovery or paused retries. See the
+[account recovery policy](../account/README.md) for cooldowns and manual retry.
+
 Apple documents how to [create a dedicated app-specific password](https://support.apple.com/en-ca/102654). Enter it in the native app, never in chat or command arguments. The app does not need the primary Apple Account password.
 
 ## Build and test

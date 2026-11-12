@@ -156,8 +156,14 @@ inactivity timeout. Discovery and complete multi-calendar fetches have a
 three-minute deadline. A timeout cancels the old generation, releases the busy
 state and resets pooled connections; the normal minute poll retries without a
 reboot. A temporarily missing selected calendar causes fresh discovery on the
-next poll, preserving selection and the last accepted briefing. Explicit
-credential rejection still requires reconnecting the account.
+next poll, preserving selection and the last accepted briefing. iCloud 401/403
+responses use a shared bounded recovery budget across agenda and briefing reads:
+retry after five minutes, then thirty minutes, and pause after a third rejection.
+The last accepted briefing stays visible as stale while fresh calendar inputs
+are unavailable; it is not used to generate a new briefing. **Retry data** allows
+one more connection after a thirty-minute cooldown. Ordinary refreshes cannot
+bypass the pause. See [account recovery](../account/README.md). Google revocation
+and rejected OpenAI keys retain their own reconnect/replacement requirements.
 
 Fixed structured journal events record source failures, calendar/weather waits,
 briefing request outcomes and response-validation failures. They omit provider
