@@ -4,7 +4,21 @@ The dashboard runs as `porthole`, with no sudo access and no permission to read 
 
 A root-owned helper accepts bounded save, forget, clear and storage-status messages only from the calendar-service UID. It has a fixed credential path and no caller-controlled command or filename. It encrypts account email, the dedicated app-specific password and selected calendars with `systemd-creds --with-key=host`, passes plaintext through standard input, and atomically replaces the encrypted file after syncing it. No plaintext credential file, secret command argument, environment variable or request log is created.
 
-`porthole-calendar.service` receives the decrypted credential through systemd's service credential directory. The encrypted file is `/etc/credstore.encrypted/porthole-icloud`; the host key is under `/var/lib/systemd/`. Both are private to root. Core dumps are disabled for the calendar service and dashboard. Calendar discovery must succeed and the user must select readable calendars before the account is saved. A remembered account reconnects and restores those selections when the service/device restarts; an app restart reconnects to the existing service. Network failures retry asynchronously. A rejected credential stops automatic authentication attempts and displays a request to replace the password.
+`porthole-calendar.service` receives the decrypted credential through systemd's service credential directory. The encrypted file is `/etc/credstore.encrypted/porthole-icloud`; the host key is under `/var/lib/systemd/`. Both are private to root. Core dumps are disabled for the calendar service and dashboard. Calendar discovery must succeed and the user must select readable calendars before the account is saved. A remembered account reconnects and restores those selections when the service/device restarts; an app restart reconnects to the existing service. Network failures retry asynchronously.
+
+An iCloud HTTP 401/403 cancels both iCloud readers and preserves the last loaded
+agenda and saved briefing, labelled as awaiting fresh data. It is an access
+rejection, not proof that the password is wrong. The minute poll allows a fresh
+connection after five minutes, then after thirty minutes. A third rejection
+pauses automatic authentication attempts. Settings → Errors & debugging →
+**Retry data** allows one further attempt after a thirty-minute cooldown; normal
+refreshes, month changes and re-entering the same password cannot bypass it.
+The cooldown uses elapsed time, so clock corrections cannot shorten it.
+Successful discovery alone does not renew this shared budget: the agenda and,
+when enabled with a key, briefing calendar reads must succeed. Changed credentials
+start a new connection; Forget or account/selection changes still clear data tied
+to that connection. Agenda events remain memory-only; a service restart has no
+persisted event cache.
 
 The frame exposes no TPM device. With automatic sign-in, the key and encrypted credential reside on the same removable SD card. This protects ordinary process/file access but does not prevent recovery by someone with the complete card or root access. Keep the actual credential, host key, Wi-Fi profiles and live calendar data out of source control, diagnostics and shared backups. Forget removes the saved credential and restarts the calendar service to discard its loaded plaintext credential; it does not revoke the app-specific password at Apple or promise forensic erasure of flash storage.
 

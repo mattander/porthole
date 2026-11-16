@@ -13,6 +13,7 @@ public:
     void selectCalendars(const QList<Calendar> &calendars);
     void fetch(const QList<Calendar> &,QDate month);
     void eventDetails(const Event &event,std::function<void(std::optional<Event>)> complete);
+    void retryIcloud();
     void forgetAccount();
     void selectGoogleCalendars(const QList<Calendar> &calendars);
     void forgetGoogleAccount();

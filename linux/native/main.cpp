@@ -316,7 +316,7 @@ private:
         actions.chooseGoogle=[this]{chooseCalendars(caldav.googleCalendars(),true);};
         actions.setupGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();QMessageBox::information(parent,"Connect Google","Create a Desktop OAuth client with Calendar API enabled, then run linux/google/connect-google.py on your Mac with the downloaded client JSON. Connect the frame over USB for this one-time setup. See linux/google/README.md for the steps.\n\nGoogle sign-in opens in your Mac browser. This frame never asks for your Google password.");};
         actions.forgetGoogle=[this]{QWidget *parent=this;if(settings)parent=settings.data();if(QMessageBox::question(parent,"Forget Google","Remove Google's saved sign-in from this frame? iCloud remains connected. You can also revoke Porthole in your Google Account permissions.")==QMessageBox::Yes)caldav.forgetGoogleAccount();};
-        actions.useLive=[this]{useLiveData();};actions.refresh=[this]{useLiveData();};actions.useSample=[this]{sampleData();};
+        actions.useLive=[this]{useLiveData();};actions.refresh=[this]{if(!demo)caldav.retryIcloud();useLiveData();};actions.useSample=[this]{sampleData();};
         actions.theme=[this](bool dark){appearance=AppearanceMode::Manual;ambientTheme.reset();saveAppearance(dark);applyTheme(dark);syncSettings();};
         actions.appearance=[this](AppearanceMode mode){appearance=mode;ambientTheme.reset();saveAppearance(darkTheme);applyAutomaticTheme();if(!demo&&mode==AppearanceMode::AmbientLight)ambient.sample();syncSettings();};
         actions.brightness=[this](int level){
